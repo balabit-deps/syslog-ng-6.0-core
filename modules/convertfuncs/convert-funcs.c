@@ -19,6 +19,7 @@
  * COPYING for details.
  */
 
+#include <ctype.h>
 #include "plugin.h"
 #include "cfg.h"
 #include "gsocket.h"
@@ -377,6 +378,36 @@ tf_replace(LogMessage *msg, gint argc, GString *argv[], GString *result)
 TEMPLATE_FUNCTION_SIMPLE(tf_replace);
 
 static void
+tf_trim(LogMessage *msg, gint argc, GString *argv[], GString *result)
+{
+  gchar *begin;
+  gchar *end;
+
+  if (argc != 1)
+  {
+    g_string_append(result, "trim: syntax error. Syntax is: trim subject");
+    return;
+  }
+
+  begin = argv[0]->str;
+  end = begin + argv[0]->len - 1;
+
+  while (*begin && isspace(*begin))
+    {
+      ++begin;
+    }
+
+  while (begin < end && isspace(*end))
+    {
+      --end;
+    }
+
+  g_string_append_len(result, begin, end - begin + 1);
+}
+
+TEMPLATE_FUNCTION_SIMPLE(tf_trim);
+
+static void
 tf_lowercase(LogMessage *msg, int argc, GString *argv[], GString *result)
 {
   int i;
@@ -397,6 +428,7 @@ static Plugin convert_func_plugins[] =
   TEMPLATE_FUNCTION_PLUGIN(tf_ipv4_to_int, "ipv4-to-int"),
   TEMPLATE_FUNCTION_PLUGIN(tf_format_snare, "format-snare"),
   TEMPLATE_FUNCTION_PLUGIN(tf_replace,"replace"),
+  TEMPLATE_FUNCTION_PLUGIN(tf_trim,"trim"),
   TEMPLATE_FUNCTION_PLUGIN(tf_lowercase,"lowercase"),
   TEMPLATE_FUNCTION_PLUGIN(tf_cut,"cut")
 };
