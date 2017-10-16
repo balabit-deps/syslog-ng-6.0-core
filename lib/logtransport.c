@@ -227,4 +227,34 @@ log_transport_plain_new(gint fd, guint flags)
   return &self->super;
 }
 
+static void
+_replace_nulls_with_space(guchar* buf, gssize rc)
+{
+  guchar *last_character = buf + rc;
+  for(guchar *position = buf; position < last_character; position++)
+    {
+      if (*position == '\0')
+        *position = ' ';
+  }
+}
+
+static gssize
+log_transport_nullimator_read_method(LogTransport *s, gpointer buf, gsize buflen, GSockAddr **sa)
+{
+  gssize rc = log_transport_plain_read_method(s, buf, buflen, sa);
+  if (rc > 0)
+    _replace_nulls_with_space(buf, rc);
+  return rc;
+}
+
+LogTransport *
+log_transport_nullimator_new(gint fd, guint flags)
+{
+  LogTransportPlain *self = (LogTransportPlain *)log_transport_plain_new(fd, flags);
+
+  self->super.read = log_transport_nullimator_read_method;
+
+  return &self->super;
+}
+
 
