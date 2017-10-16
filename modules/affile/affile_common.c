@@ -551,7 +551,11 @@ affile_sd_skip_old_messages(LogSrcDriver *s, GlobalConfig *cfg)
 static LogTransport *
 _affile_sd_construct_transport(AFFileSourceDriver *self, gint fd)
 {
-    LogTransport *transport = log_transport_plain_new(fd, 0);
+    LogTransport *transport = NULL;
+    if (self->replace_null_characters)
+      transport = log_transport_nullimator_new(fd, 0);
+    else
+      transport = log_transport_plain_new(fd, 0);
     transport->timeout = 10;
     return transport;
 }
@@ -905,7 +909,6 @@ affile_sd_set_recursion(LogDriver *s, const gint recursion)
   AFFileSourceDriver *self = (AFFileSourceDriver *) s;
   self->monitor_options.recursion = recursion;
 }
-
 
 gboolean
 affile_sd_set_multi_line_prefix(LogDriver *s, gchar *prefix)

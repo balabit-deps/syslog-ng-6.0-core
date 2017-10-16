@@ -53,6 +53,7 @@ typedef struct _AFFileSourceDriver
   FileMonitor *file_monitor;
   UniqQueue *file_list;
   gboolean is_regular;
+  gboolean replace_null_characters;
 } AFFileSourceDriver;
 
 LogDriver *affile_sd_new(gchar *filename, guint32 flags);
