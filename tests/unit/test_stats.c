@@ -24,6 +24,7 @@
 #include "testutils.h"
 #include "stats.c"
 #include "apphook.h"
+#include "hds.h"
 
 StatsCounterItem *counter;
 
@@ -39,6 +40,7 @@ static inline void
 clean_test()
 {
   stats_destroy();
+  hds_destroy();
 }
 
 void
@@ -80,11 +82,11 @@ test_dynamic_instant_inc()
   gboolean new;
   stats_instant_inc_dynamic_counter(1, SCS_TCP | SCS_DESTINATION, "d_tcp#0", "1.1.1.1", (time_t)123456789);
   stats_register_dynamic_counter(1, SCS_TCP | SCS_DESTINATION, "d_tcp#0", "1.1.1.1", SC_TYPE_PROCESSED, &counter, &new);
-  assert_false(new, NULL);
+  assert_true(new, NULL);
   assert_gint(counter->value, 1, NULL);
 
   stats_register_dynamic_counter(1, SCS_TCP | SCS_DESTINATION, "d_tcp#0", "1.1.1.1", SC_TYPE_STAMP, &counter, &new);
-  assert_true(new, NULL);
+  assert_false(new, NULL);
   assert_gint(counter->value, 123456789, NULL);
 
   clean_test();
@@ -247,6 +249,7 @@ main(gint argc, gchar **argv)
   test_register_counter();
   test_stats_level();
   test_empty_keys();
+  test_dynamic_instant_inc();
   test_register_new_dynamic_counter();
   test_register_already_registered_dynamic_counter();
   test_register_same_dynamic_counter_but_another_counter_item();
