@@ -49,6 +49,9 @@
 
 static gchar *pid_string = NULL;
 
+
+static LogProto * _affile_sd_construct_proto(AFFileSourceDriver *self, gint fd);
+
 static gboolean
 is_string_contain_any_fragment(const gchar *str, const gchar *fragments[])
 {
@@ -356,7 +359,6 @@ static void
 affile_sd_reopen_file(LogPipe *s)
 {
   gint fd;
-  LogTransport *transport;
   LogProto *proto;
   AFFileSourceDriver *self = (AFFileSourceDriver *) s;
   LogProtoServerOptions *options = (LogProtoServerOptions *)&self->proto_options;
@@ -364,10 +366,7 @@ affile_sd_reopen_file(LogPipe *s)
 
   affile_sd_open_file(self, self->filename->str, &fd);
 
-  transport = log_transport_plain_new(fd, 0);
-  transport->timeout = 10;
-
-  proto = affile_sd_construct_proto(self, transport);
+  proto = _affile_sd_construct_proto(self, fd);
 
   affile_sd_recover_state(s, cfg, proto);
 
@@ -403,13 +402,7 @@ affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_da
                     NULL);
         if (affile_sd_open_file(self, self->filename->str, &fd))
           {
-            LogTransport *transport;
-            LogProto *proto;
-
-            transport = log_transport_plain_new(fd, 0);
-            transport->timeout = 10;
-
-            proto = affile_sd_construct_proto(self, transport);
+            LogProto *proto = _affile_sd_construct_proto(self, fd);
 
             affile_sd_recover_state(s, cfg, proto);
 
@@ -460,7 +453,6 @@ get_next_file:
           }
         if (affile_sd_open_file(self, filename, &fd))
           {
-            LogTransport *transport;
             LogProto *proto;
 
 
@@ -472,10 +464,7 @@ get_next_file:
                       evt_tag_str("filename", self->filename->str),
                       NULL);
 
-            transport = log_transport_plain_new(fd, 0);
-            transport->timeout = 10;
-
-            proto = affile_sd_construct_proto(self, transport);
+            proto = _affile_sd_construct_proto(self, fd);
 
             if (!end_of_list)
               {
@@ -559,13 +548,23 @@ affile_sd_skip_old_messages(LogSrcDriver *s, GlobalConfig *cfg)
   return TRUE;
 }
 
-LogProto *
-affile_sd_construct_proto(AFFileSourceDriver *self, LogTransport *transport)
+static LogTransport *
+_affile_sd_construct_transport(AFFileSourceDriver *self, gint fd)
+{
+    LogTransport *transport = log_transport_plain_new(fd, 0);
+    transport->timeout = 10;
+    return transport;
+}
+
+static LogProto *
+_affile_sd_construct_proto(AFFileSourceDriver *self, gint fd)
 {
   guint flags;
   LogProto *proto = NULL;
   GlobalConfig *cfg = log_pipe_get_config((LogPipe *)self);
   gchar *name = NULL;
+
+  LogTransport *transport = _affile_sd_construct_transport(self, fd);
 
   MsgFormatHandler *handler;
 
@@ -765,15 +764,11 @@ affile_sd_open(LogPipe *s, gboolean immediate_check)
 
   if (file_opened || open_deferred)
     {
-      LogTransport *transport = NULL;
       LogProto *proto = NULL;
 
       if (self->reader == NULL)
         {
-          transport = log_transport_plain_new(fd, 0);
-          transport->timeout = 10;
-
-          proto = affile_sd_construct_proto(self, transport);
+          proto = _affile_sd_construct_proto(self, fd);
           if (proto == NULL)
             {
               close(fd);
