@@ -74,6 +74,8 @@ log_transport_read(LogTransport *self, gpointer buf, gsize count, GSockAddr **sa
 }
 
 LogTransport *log_transport_plain_new(gint fd, guint flags);
+LogTransport *log_transport_nullimator_new(gint fd, guint flags);
+
 void log_transport_free(LogTransport *s);
 void log_transport_free_method(LogTransport *s);
 

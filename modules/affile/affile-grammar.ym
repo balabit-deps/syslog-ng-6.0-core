@@ -60,6 +60,7 @@
 %token KW_RECURSIVE
 %token KW_USE_OWN_PID
 %token KW_FORCE_DIRECTORY_POLLING
+%token KW_REPLACE_NULLS
 
 %type	<ptr> source_affile
 %type	<ptr> source_affile_params
@@ -107,6 +108,7 @@ source_affile_option
                                              YYERROR;
                                          }
 	| KW_FORCE_DIRECTORY_POLLING '(' yesno ')'	{ affile_sd_set_force_directory_polling(last_driver, $3); }
+        | KW_REPLACE_NULLS '(' yesno ')'       { ((AFFileSourceDriver *)last_driver)->replace_null_characters = $3; }
         | source_reader_option
         ;
 

@@ -61,8 +61,6 @@ void affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer us
 void affile_sd_monitor_pushback_filename(AFFileSourceDriver *self, const gchar *filename);
 gboolean affile_sd_skip_old_messages(LogSrcDriver *s, GlobalConfig *cfg);
 
-LogProto* affile_sd_construct_proto(AFFileSourceDriver *self, LogTransport *transport);
-
 gboolean affile_sd_open(LogPipe *s, gboolean immediate_check);
 gboolean affile_sd_init(LogPipe *s);
 gboolean affile_sd_deinit(LogPipe *s);
