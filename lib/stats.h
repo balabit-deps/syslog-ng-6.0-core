@@ -203,4 +203,3 @@ stats_counter_get(StatsCounterItem *counter)
   return result;
 }
 #endif
-
