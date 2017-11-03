@@ -297,7 +297,7 @@ __create_stats_counter(gint source, const gchar *id, const gchar *instance)
 }
 
 static StatsCounter *
-stats_add_counter(gint stats_level, gint source, const gchar *id, const gchar *instance, gboolean *new)
+stats_add_counter(GHashTable *counter_hash, gint stats_level, gint source, const gchar *id, const gchar *instance, gboolean *new)
 {
   StatsCounter key;
   StatsCounter *sc;
@@ -354,7 +354,7 @@ stats_register_counter(gint stats_level, gint source, const gchar *id, const gch
   g_assert(type < SC_TYPE_MAX);
   
   *counter = NULL;
-  sc = stats_add_counter(stats_level, source, id, instance, &new);
+  sc = stats_add_counter(counter_static_hash, stats_level, source, id, instance, &new);
   if (!sc)
     goto exit;
 
@@ -374,7 +374,7 @@ stats_register_dynamic_counter(gint stats_level, gint source, const gchar *id, c
   
   *counter = NULL;
   *new = FALSE;
-  sc = stats_add_counter(stats_level, source, id, instance, &local_new);
+  sc = stats_add_counter(counter_dynamic_hash, stats_level, source, id, instance, &local_new);
   if (new)
     *new = local_new;
   if (!sc)
@@ -449,7 +449,7 @@ stats_unregister_counter(gint source, const gchar *id, const gchar *instance, St
 
   stats_counter_init_instance(&key, source, id, instance);
 
-  sc = g_hash_table_lookup(counter_hash, &key);
+  sc = g_hash_table_lookup(counter_static_hash, &key);
 
   g_assert(sc && (sc->live_mask & (1 << type)) && &sc->counters[type] == (*counter));
   
@@ -479,7 +479,7 @@ stats_counter_is_orphaned(gpointer key, gpointer value, gpointer user_data)
 void
 stats_cleanup_orphans(void)
 {
-  g_hash_table_foreach_remove(counter_hash, stats_counter_is_orphaned, NULL);
+  g_hash_table_foreach_remove(counter_static_hash, stats_counter_is_orphaned, NULL);
 }
 
 void
@@ -547,7 +547,8 @@ stats_generate_log(void)
   LogMessage *lm;
   GString *message = g_string_new("Log statistics");
 
-  g_hash_table_foreach(counter_hash, stats_format_log_counter, message);
+  g_hash_table_foreach(counter_static_hash, stats_format_log_counter, message);
+  g_hash_table_foreach(counter_dynamic_hash, stats_format_log_counter, message);
   lm = msg_event_create(EVT_PRI_INFO, message->str, evt_tag_id(MSG_LOG_STATISTIC), NULL);
   g_string_free(message, TRUE);
   msg_event_send(lm);
@@ -661,7 +662,8 @@ stats_generate_csv(void)
   GString *csv = g_string_sized_new(1024);
 
   g_string_append_printf(csv, "%s;%s;%s;%s;%s;%s\n", "SourceName", "SourceId", "SourceInstance", "State", "Type", "Number");
-  g_hash_table_foreach(counter_hash, stats_format_csv, csv);
+  g_hash_table_foreach(counter_static_hash, stats_format_csv, csv);
+  g_hash_table_foreach(counter_dynamic_hash, stats_format_csv, csv);
   return g_string_free(csv, FALSE);
 }
 
@@ -743,31 +745,33 @@ global_stats_property_new()
 }
 
 void
-__init_counter_hash()
+__init_counter_hash(GHashTable** counter_hash, gchar* name)
 {
   PropertyContainer *root_container;
   GlobalStatsProperty *global_stats_property;
   root_container = hds_acquire_property_container(hds_get_root(), nv_property_container_new);
-  global_stats_property = (GlobalStatsProperty *)property_container_get_property(root_container, "stats");
+  global_stats_property = (GlobalStatsProperty *)property_container_get_property(root_container, name);
   if (!global_stats_property)
     {
       global_stats_property = (GlobalStatsProperty *)global_stats_property_new();
-      property_container_add_property(root_container, "stats", &global_stats_property->super);
+      property_container_add_property(root_container, name, &global_stats_property->super);
     }
-  counter_hash = g_hash_table_ref(global_stats_property->counter_hash);
+  *counter_hash = g_hash_table_ref(global_stats_property->counter_hash);
 }
 
 void
 stats_init(void)
 {
   hds_init();
-  __init_counter_hash();
-
+  __init_counter_hash(&counter_static_hash, "stats_static");
+  __init_counter_hash(&counter_dynamic_hash, "stats_dynamic");
 }
 
 void
 stats_destroy(void)
 {
-  g_hash_table_unref(counter_hash);
-  counter_hash = NULL;
+  g_hash_table_unref(counter_static_hash);
+  counter_static_hash = NULL;
+  g_hash_table_unref(counter_dynamic_hash);
+  counter_dynamic_hash = NULL;
 }

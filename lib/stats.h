@@ -21,7 +21,7 @@
  * COPYING for details.
  *
  */
-  
+
 #ifndef STATS_H_INCLUDED
 #define STATS_H_INCLUDED
 
@@ -31,7 +31,8 @@
 #include "property_container.h"
 #include "hds.h"
 
-GHashTable *counter_hash;
+GHashTable *counter_static_hash;
+GHashTable *counter_dynamic_hash;
 
 typedef enum
 {
