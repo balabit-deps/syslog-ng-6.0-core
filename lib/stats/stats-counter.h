@@ -24,6 +24,6 @@
 #ifndef STATS_COUNTER_H_INCLUDED
 #define STATS_COUNTER_H_INCLUDED 1
 
-void stats_reset_counters(GHashTable * counter_hash);
+void stats_reset_counters(void);
 
 #endif
