@@ -84,9 +84,9 @@ control_connection_message_log(GString *command)
 
   if (g_str_equal(cmds[1], "DEBUG"))
     type = &debug_flag;
-  else if (g_str_equal(cmds[1], "VERBOSE")) 
+  else if (g_str_equal(cmds[1], "VERBOSE"))
     type = &verbose_flag;
-  else if (g_str_equal(cmds[1], "TRACE")) 
+  else if (g_str_equal(cmds[1], "TRACE"))
     type = &trace_flag;
 
   if (type)

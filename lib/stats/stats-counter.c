@@ -47,4 +47,3 @@ stats_reset_counters(void)
   g_hash_table_foreach(counter_dynamic_hash, _reset_counters, NULL);
   hds_unlock();
 }
-

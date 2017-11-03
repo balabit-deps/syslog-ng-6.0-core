@@ -21,7 +21,7 @@
  * COPYING for details.
  *
  */
-  
+
 #ifndef CFG_H_INCLUDED
 #define CFG_H_INCLUDED
 
@@ -93,22 +93,22 @@ struct _GlobalConfig
   gint file_uid;
   gint file_gid;
   gint file_perm;
-  
+
   gint dir_uid;
   gint dir_gid;
   gint dir_perm;
 
-  gboolean keep_timestamp;  
+  gboolean keep_timestamp;
 
   gchar *recv_time_zone;
   LogTemplateOptions template_options;
-  
+
   gchar *file_template_name;
   gchar *proto_template_name;
-  
+
   struct _LogTemplate *file_template;
   struct _LogTemplate *proto_template;
-  
+
   /* */
   GHashTable *sources;
   GHashTable *destinations;
@@ -255,7 +255,7 @@ void show_config_shutdown_message(GlobalConfig *cfg)
     cfg->show_shutdown_message(cfg);
 }
 
-static inline gboolean 
+static inline gboolean
 cfg_check_current_config_version(gint req)
 {
   if (!configuration)

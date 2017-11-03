@@ -21,7 +21,7 @@
  * COPYING for details.
  *
  */
-  
+
 #include "cfg.h"
 #include "sgroup.h"
 #include "dgroup.h"
@@ -193,7 +193,7 @@ cfg_bad_hostname_set(GlobalConfig *self, gchar *bad_hostname_re)
 {
   if (self->bad_hostname_re)
     g_free(self->bad_hostname_re);
-  self->bad_hostname_re = g_strdup(bad_hostname_re);  
+  self->bad_hostname_re = g_strdup(bad_hostname_re);
 }
 
 gint
@@ -319,7 +319,7 @@ cfg_init(GlobalConfig *cfg)
 
   /* init the uptime (SYSUPTIME macro) */
   g_get_current_time(&app_uptime);
-  
+
   /* init os_start_time for $OSUPTIME macro */
   os_start_time = _get_os_start_time();
 
@@ -337,14 +337,14 @@ cfg_init(GlobalConfig *cfg)
       if ((regerr = regcomp(&cfg->bad_hostname, cfg->bad_hostname_re, REG_NOSUB | REG_EXTENDED)) != 0)
         {
           gchar buf[256];
-          
+
           regerror(regerr, &cfg->bad_hostname, buf, sizeof(buf));
           msg_error("Error compiling bad_hostname regexp",
                     evt_tag_str("error", buf),
                     NULL);
         }
       else
-        { 
+        {
           cfg->bad_hostname_compiled = TRUE;
         }
     }
@@ -516,7 +516,7 @@ cfg_new(gint version)
   self->dns_cache_expire = 3600;
   self->dns_cache_expire_failed = 60;
   self->threaded = TRUE;
-  
+
   log_template_options_defaults(&self->template_options);
   self->template_options.ts_format = TS_FMT_BSD;
   self->template_options.frac_digits = 0;
@@ -637,7 +637,7 @@ static gboolean
 cfg_remove_pipe(gpointer key, gpointer value, gpointer user_data)
 {
   LogPipe *self = (LogPipe *) value;
-  
+
   log_pipe_unref(self);
   return TRUE;
 }
@@ -646,7 +646,7 @@ static gboolean
 cfg_remove_process(gpointer key, gpointer value, gpointer user_data)
 {
   LogProcessRule *s = (LogProcessRule *) value;
-  
+
   log_process_rule_unref(s);
   return TRUE;
 }
@@ -667,21 +667,21 @@ cfg_free(GlobalConfig *self)
     persist_state_free(self->state);
 
   g_free(self->file_template_name);
-  g_free(self->proto_template_name);  
+  g_free(self->proto_template_name);
   log_template_unref(self->file_template);
   log_template_unref(self->proto_template);
   log_template_options_destroy(&self->template_options);
-  
+
   if (self->center)
     log_center_free(self->center);
-  
+
   g_hash_table_foreach_remove(self->sources, cfg_remove_pipe, NULL);
   g_hash_table_foreach_remove(self->destinations, cfg_remove_pipe, NULL);
   g_hash_table_foreach_remove(self->filters, cfg_remove_process, NULL);
   g_hash_table_foreach_remove(self->parsers, cfg_remove_process, NULL);
   g_hash_table_foreach_remove(self->rewriters, cfg_remove_process, NULL);
   g_hash_table_foreach_remove(self->templates, cfg_remove_template, NULL);
-  
+
   for (i = 0; i < self->connections->len; i++)
     {
       log_connection_free(g_ptr_array_index(self->connections, i));
@@ -723,25 +723,25 @@ cfg_persist_config_move(GlobalConfig *src, GlobalConfig *dest)
 
 void
 cfg_persist_config_add(GlobalConfig *cfg, gchar *name, gpointer value, GDestroyNotify destroy, gboolean force)
-{ 
+{
   PersistConfigEntry *p;
-  
+
   if (cfg->persist && value)
     {
       if (g_hash_table_lookup(cfg->persist->keys, name))
         {
           if (!force)
             {
-              msg_error("Internal error, duplicate configuration elements refer to the same persistent config", 
+              msg_error("Internal error, duplicate configuration elements refer to the same persistent config",
                         evt_tag_str("name", name),
                         NULL);
               destroy(value);
               return;
             }
         }
-  
+
       p = g_new0(PersistConfigEntry, 1);
-  
+
       p->value = value;
       p->destroy = destroy;
       g_hash_table_insert(cfg->persist->keys, g_strdup(name), p);
