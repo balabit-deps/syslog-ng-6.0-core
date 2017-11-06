@@ -34,6 +34,7 @@ init_test(gint stats_level)
   counter = NULL;
   stats_init();
   stats_set_stats_level(stats_level);
+  stats_set_max_dynamic(-1);
 }
 
 static inline void
@@ -243,6 +244,50 @@ test_hds_key()
   clean_test();
 }
 
+void
+test_dynamic_cluster_limit_register()
+{
+  StatsCounter *sc;
+  gboolean new = FALSE;
+  init_test(1);
+
+  stats_set_max_dynamic(1);
+
+  sc = stats_register_dynamic_counter(1, SCS_TCP | SCS_SOURCE, "s_tcp#10", "127.0.0.1", SC_TYPE_PROCESSED, &counter, &new);
+  assert_true(new, NULL);
+  assert_not_null(sc, NULL);
+
+  sc = stats_register_dynamic_counter(1, SCS_TCP | SCS_SOURCE, "s_tcp#10", "127.0.0.1", SC_TYPE_PROCESSED, &counter, &new);
+  assert_null(sc, NULL);
+
+  clean_test();
+}
+
+void
+test_dynamic_cluster_limit()
+{
+  init_test(1);
+  stats_set_max_dynamic(2);
+
+  assert_true(stats_check_dynamic_cluster_limit(0), NULL);
+  assert_true(stats_check_dynamic_cluster_limit(1), NULL);
+  assert_false(stats_check_dynamic_cluster_limit(2), NULL);
+  assert_false(stats_check_dynamic_cluster_limit(3), NULL);
+
+  clean_test();
+}
+
+void
+test_dynamic_cluster_limit_unlimited()
+{
+  init_test(1);
+
+  assert_true(stats_check_dynamic_cluster_limit(0), NULL);
+  assert_true(stats_check_dynamic_cluster_limit(UINT_MAX), NULL);
+
+  clean_test();
+}
+
 gint
 main(gint argc, gchar **argv)
 {
@@ -255,6 +300,9 @@ main(gint argc, gchar **argv)
   test_register_same_dynamic_counter_but_another_counter_item();
   test_cleanup_orphans();
   test_stats_reinit();
+  test_dynamic_cluster_limit();
+  test_dynamic_cluster_limit_unlimited();
+  test_dynamic_cluster_limit_register();
   test_hds_extension();
   test_hds_key();
   return 0;

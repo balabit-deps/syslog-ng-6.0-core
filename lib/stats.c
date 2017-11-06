@@ -84,7 +84,8 @@ static StatsCounterItem *severity_counters[SEVERITY_MAX];
 static StatsCounterItem *facility_counters[FACILITY_MAX];
 
 
-gint current_stats_level;
+gint current_stats_level = 0;
+gint current_stats_max_dynamic = -1;
 
 const gchar *tag_names[SC_TYPE_MAX] =
 {
@@ -374,6 +375,9 @@ stats_register_dynamic_counter(gint stats_level, gint source, const gchar *id, c
   
   *counter = NULL;
   *new = FALSE;
+  if (!stats_check_dynamic_cluster_limit(stats_number_of_current_dynamic()))
+    return NULL;
+
   sc = stats_add_counter(counter_dynamic_hash, stats_level, source, id, instance, &local_new);
   if (new)
     *new = local_new;
@@ -386,7 +390,12 @@ stats_register_dynamic_counter(gint stats_level, gint source, const gchar *id, c
   sc->dynamic = TRUE;
   *counter = &sc->counters[type];
   sc->live_mask |= 1 << type;
+
 exit:
+  if (!stats_check_dynamic_cluster_limit(stats_number_of_current_dynamic()))
+    msg_warning("Number of dynamic cluster limit has been reached.",
+                evt_tag_int("allowed_clusters", stats_number_of_max_dynamic()),
+                NULL);
   return sc;
 }
 
@@ -665,6 +674,17 @@ stats_generate_csv(void)
   g_hash_table_foreach(counter_static_hash, stats_format_csv, csv);
   g_hash_table_foreach(counter_dynamic_hash, stats_format_csv, csv);
   return g_string_free(csv, FALSE);
+}
+
+void
+stats_set_max_dynamic(gint stats_max_dynamic)
+{
+  current_stats_max_dynamic = stats_max_dynamic;
+  if (!stats_check_dynamic_cluster_limit(stats_number_of_current_dynamic()))
+    msg_warning("Number of dynamic cluster limit has been reached.",
+                evt_tag_int("allowed_clusters", stats_number_of_max_dynamic()),
+                evt_tag_int("current_number_of_clusters", stats_number_of_current_dynamic()),
+                NULL);
 }
 
 void
