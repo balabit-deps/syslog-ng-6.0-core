@@ -493,6 +493,7 @@ cfg_new(gint version)
   self->mark_freq = 1200;	/* 20 minutes */
   self->mark_mode = MM_HOST_IDLE;
   self->stats_freq = 600;
+  self->stats_max_dynamic = -1;
   self->chain_hostnames = 0;
   self->use_fqdn = 0;
   self->use_dns = 1;

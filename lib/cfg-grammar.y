@@ -188,6 +188,7 @@ extern struct _ValuePairsTransformSet *last_vp_transset;
 %token KW_FILE_TEMPLATE               10078
 %token KW_PROTO_TEMPLATE              10079
 %token KW_MARK_MODE                   10080
+%token KW_STATS_MAX_DYNAMIC           10081
 
 %token KW_CHAIN_HOSTNAMES             10090
 %token KW_NORMALIZE_HOSTNAMES         10091
@@ -748,6 +749,11 @@ options_item
 	: KW_MARK_FREQ '(' nonnegative_integer ')'		{ configuration->mark_freq = $3; }
 	| KW_STATS_FREQ '(' nonnegative_integer ')'          { configuration->stats_freq = $3; }
 	| KW_STATS_LEVEL '(' LL_NUMBER ')'         { configuration->stats_level = $3; stats_set_stats_level($3); }
+	| KW_STATS_MAX_DYNAMIC '(' nonnegative_integer ')'
+      {
+        configuration->stats_max_dynamic = $3;
+        stats_set_max_dynamic($3);
+      }
 	| KW_FLUSH_LINES '(' positive_integer ')'		{ configuration->flush_lines = $3; }
         | KW_MARK_MODE '(' KW_INTERNAL ')'         { cfg_set_mark_mode(configuration, "internal"); }
         | KW_MARK_MODE '(' string ')'
