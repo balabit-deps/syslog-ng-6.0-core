@@ -508,6 +508,7 @@ create_containing_directory(gchar *name, gint dir_uid, gint dir_gid, gint dir_mo
   else if (rc < 0 && errno != ENOENT)
     {
       /* some real error occurred */
+      msg_warning("Failed to create containing directory", evt_tag_str("file", name), evt_tag_errno("errno", errno), NULL);
       return FALSE;
     }
 
@@ -529,14 +530,21 @@ create_containing_directory(gchar *name, gint dir_uid, gint dir_gid, gint dir_mo
       if (stat(name, &st) == 0)
         {
           if (!S_ISDIR(st.st_mode))
-            return FALSE;
+            {
+              msg_warning("Failed to create containing directory, the 'parent', is not a directory",
+                  evt_tag_str("parent", name), NULL);
+              return FALSE;
+            }
         }
       else if (errno == ENOENT)
         {
           if (g_mkdir(name, dir_mode < 0 ? 0700 : (mode_t) dir_mode) == -1)
-            return FALSE;
+            {
+              msg_warning("Failed to create containing directory", evt_tag_str("dir", name), evt_tag_errno("errno", errno), NULL);
+              return FALSE;
+            }
           if (grant_file_permissions(name, dir_uid, dir_gid, dir_mode) < 0)
-            msg_warning("Failed to set file permissions", NULL);
+            msg_warning("Failed to set file permissions", evt_tag_str("file", name), NULL);
         }
       *p = G_DIR_SEPARATOR;
       p = strchr(p + 1, G_DIR_SEPARATOR);
