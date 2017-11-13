@@ -77,6 +77,7 @@ static CfgLexerKeyword main_keywords[] = {
   { "mark_mode",          KW_MARK_MODE },
   { "stats_freq",         KW_STATS_FREQ },
   { "stats_level",        KW_STATS_LEVEL },
+  { "stats_max_dynamic",  KW_STATS_MAX_DYNAMIC },
   { "stats",              KW_STATS_FREQ, 0, KWS_OBSOLETE, "stats_freq" },
   { "flush_lines",        KW_FLUSH_LINES },
   { "flush_timeout",      KW_FLUSH_TIMEOUT, 0, KWS_OBSOLETE, "flush_timeout has been ignored since " VERSION_PE_4_2},

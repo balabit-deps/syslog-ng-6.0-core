@@ -21,7 +21,7 @@
  * COPYING for details.
  *
  */
-  
+
 #ifndef STATS_H_INCLUDED
 #define STATS_H_INCLUDED
 
@@ -31,7 +31,8 @@
 #include "property_container.h"
 #include "hds.h"
 
-GHashTable *counter_hash;
+GHashTable *counter_static_hash;
+GHashTable *counter_dynamic_hash;
 
 typedef enum
 {
@@ -102,6 +103,7 @@ typedef struct _StatsCounter
 } StatsCounter;
 
 extern gint current_stats_level;
+extern gint current_stats_max_dynamic;
 
 void stats_generate_log(void);
 gchar *stats_generate_csv(void);
@@ -117,6 +119,7 @@ void stats_cleanup_orphans(void);
 void stats_counter_inc_pri(guint16 pri);
 
 void stats_set_stats_level(gint stats_level);
+void stats_set_max_dynamic(gint stats_max_dynamic);
 void stats_reinit(GlobalConfig *cfg);
 void stats_init(void);
 void stats_destroy(void);
@@ -125,6 +128,27 @@ static inline gboolean
 stats_check_level(gint level)
 {
   return (current_stats_level >= level);
+}
+
+static inline gint
+stats_number_of_current_dynamic(void)
+{
+  return g_hash_table_size(counter_dynamic_hash);
+}
+
+static inline gint
+stats_number_of_max_dynamic(void)
+{
+  return current_stats_max_dynamic;
+}
+
+static inline gboolean
+stats_check_dynamic_cluster_limit(guint number_of_clusters)
+{
+  if (current_stats_max_dynamic < 0)
+    return TRUE;
+
+  return (number_of_clusters < current_stats_max_dynamic);
 }
 
 static inline void
@@ -179,4 +203,3 @@ stats_counter_get(StatsCounterItem *counter)
   return result;
 }
 #endif
-
