@@ -396,6 +396,8 @@ main_loop_reload_config_apply(void)
   if (current_configuration->stats_reset)
     {
       stats_cleanup_orphans();
+      stats_set_stats_level(current_configuration->stats_level);
+      stats_set_max_dynamic(current_configuration->stats_max_dynamic);
       current_configuration->stats_reset = FALSE;
     }
   return;

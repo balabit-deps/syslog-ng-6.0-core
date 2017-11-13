@@ -40,10 +40,10 @@ _reset_counters(gpointer key, gpointer value, gpointer user_data)
 }
 
 void
-stats_reset_counters(GHashTable *counter_hash)
+stats_reset_counters(void)
 {
   hds_lock();
-  g_hash_table_foreach(counter_hash, _reset_counters, NULL);
+  g_hash_table_foreach(counter_static_hash, _reset_counters, NULL);
+  g_hash_table_foreach(counter_dynamic_hash, _reset_counters, NULL);
   hds_unlock();
 }
-
