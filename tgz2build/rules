@@ -45,7 +45,7 @@ endif
 ifneq (,$(findstring linux-glibc2.11,$(ZBS_DIST)))
   CONFIGURE_OPTS+= --enable-java
 ifneq (,$(findstring amd64,$(ZBS_ARCH)))
-  CONFIGURE_OPTS+= --enable-systemd --enable-indexer
+  CONFIGURE_OPTS+= $(TGZ_BUILD_OPTS) --enable-systemd --enable-indexer
 endif
 endif
 
