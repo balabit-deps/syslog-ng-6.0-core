@@ -78,7 +78,9 @@ void log_reader_options_init(LogReaderOptions *options, GlobalConfig *cfg, const
 void log_reader_options_destroy(LogReaderOptions *options);
 gint log_reader_options_lookup_flag(const gchar *flag);
 void log_reader_options_set_tags(LogReaderOptions *options, GList *tags);
+void log_reader_force_flush_buffer(LogReader *self);
 gboolean log_reader_options_process_flag(LogReaderOptions *options, gchar *flag);
+time_t log_reader_get_last_msg_time(LogReader *self);
 
 LogProto *log_reader_get_proto(LogReader *self);
 
