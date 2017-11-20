@@ -1908,6 +1908,7 @@ log_proto_buffered_server_init(LogProtoBufferedServer *self, LogTransport *trans
   self->super.free_fn = log_proto_buffered_server_free;
   self->super.reset_state = log_proto_buffered_server_reset_state;
   self->super.apply_state = log_proto_buffered_server_apply_state;
+  self->super.is_everything_sent = log_proto_buffered_server_is_data_in_buffer;
   self->super.transport = transport;
   self->super.convert = (GIConv) -1;
   self->super.restart_with_state = log_proto_buffered_server_restart_with_state;
@@ -3001,4 +3002,13 @@ LogProto *
 log_proto_dgram_server_new_plugin(LogTransport *transport,LogProtoOptions *options,GlobalConfig *cfg)
 {
   return log_proto_dgram_server_new(transport, options->super.size,options->super.flags);
+}
+
+gboolean
+log_proto_buffered_server_is_data_in_buffer(LogProto *logproto)
+{
+  LogProtoBufferedServer *self = (LogProtoBufferedServer*)logproto;
+  LogProtoBufferedServerState *state = log_proto_buffered_server_get_state(self);
+
+  return (state->pending_buffer_end > state->pending_buffer_pos);
 }
