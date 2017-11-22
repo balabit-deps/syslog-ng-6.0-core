@@ -47,6 +47,8 @@
 #include <sys/utsname.h>
 #endif
 
+static const int FILE_DEFAULT_TIMEOUT = 10; //in seconds
+
 static gchar *pid_string = NULL;
 
 
@@ -355,8 +357,8 @@ affile_sd_reset_file_state(PersistState *state, const gchar *old_persist_name)
   g_free(new_persist_name);
 }
 
-static void
-affile_sd_reopen_file(LogPipe *s)
+static gboolean
+affile_sd_reopen_file(LogPipe *s, const gboolean immediate_check)
 {
   gint fd;
   LogProto *proto;
@@ -364,24 +366,55 @@ affile_sd_reopen_file(LogPipe *s)
   LogProtoServerOptions *options = (LogProtoServerOptions *)&self->proto_options;
   GlobalConfig *cfg = log_pipe_get_config(s);
 
-  affile_sd_open_file(self, self->filename->str, &fd);
+  if (!affile_sd_open_file(self, self->filename->str, &fd))
+     return FALSE;
 
   proto = _affile_sd_construct_proto(self, fd);
 
   affile_sd_recover_state(s, cfg, proto);
 
-  log_reader_reopen(self->reader, proto, s, &self->reader_options, 1, SCS_FILE, self->super.super.id, self->filename->str, FALSE, (LogProtoOptions *)options);
+  log_reader_reopen(self->reader, proto, s, &self->reader_options, 1, SCS_FILE, self->super.super.id, self->filename->str, immediate_check, (LogProtoOptions *)options);
+
+  return TRUE;
+}
+
+static gboolean
+affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list, gboolean immediate_check)
+{
+      AFFileSourceDriver *self = (AFFileSourceDriver *) s;
+
+      g_string_assign(self->filename, filename);
+      g_free(filename);
+      filename = NULL;
+
+      if (affile_sd_reopen_file(s, immediate_check))
+        {
+          msg_debug("Monitoring new file", evt_tag_str("filename", self->filename->str), NULL);
+        }
+      else
+        {
+         if (!end_of_list)
+         {
+           /* Can't open file it means, that this file is deleted continue to read file till eof and finally release it */
+            return FALSE;
+         }
+         else
+         {
+           log_reader_restart(self->reader);
+         }
+        }
+
+      return TRUE;
 }
 
 /* NOTE: runs in the main thread */
 void
 affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_data)
 {
+  msg_debug("start affile_sd_notify", NULL);
   AFFileSourceDriver *self = (AFFileSourceDriver *) s;
   GlobalConfig *cfg = log_pipe_get_config(s);
-  LogProtoServerOptions *options = (LogProtoServerOptions *)&self->proto_options;
   gchar *filename = NULL;
-  gint fd;
 
   g_assert((user_data == NULL) || (user_data == self->reader));
 
@@ -392,7 +425,7 @@ affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_da
         msg_verbose("Follow-mode file source reading failed, try to reopen file",
                     evt_tag_str("filename", self->filename->str),
                     NULL);
-        affile_sd_reopen_file(s);
+        affile_sd_reopen_file(s,FALSE);
         break;
       }
     case NC_FILE_MOVED:
@@ -400,15 +433,7 @@ affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_da
         msg_verbose("Follow-mode file source moved, tracking of the new file is started",
                     evt_tag_str("filename", self->filename->str),
                     NULL);
-        if (affile_sd_open_file(self, self->filename->str, &fd))
-          {
-            LogProto *proto = _affile_sd_construct_proto(self, fd);
-
-            affile_sd_recover_state(s, cfg, proto);
-
-            log_reader_reopen(self->reader, proto, s, &self->reader_options, 1, SCS_FILE, self->super.super.id, self->filename->str, TRUE, (LogProtoOptions *)options);
-          }
-        else
+        if (!affile_sd_reopen_file(s,TRUE))
           {
             log_reader_attempt_deinit(self->reader);
             log_pipe_unref(self->reader);
@@ -431,66 +456,39 @@ affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_da
     case NC_CLOSE:
     case NC_FILE_EOF:
       {
-        gint fd = -1;
         gboolean end_of_list = TRUE;
         gboolean immediate_check = FALSE;
-get_next_file:
+
         if (!self->file_monitor)
           {
             break;
           }
 
-        filename = affile_pop_next_file(s, &end_of_list);
+        do {
+           filename = affile_pop_next_file(s, &end_of_list);
 
-        if (end_of_list && notify_code == NC_FILE_SKIP)
-          affile_sd_monitor_pushback_filename(self, END_OF_LIST);
+           if (end_of_list && notify_code == NC_FILE_SKIP)
+             affile_sd_monitor_pushback_filename(self, END_OF_LIST);
 
-        if (!filename)
-          {
-            if (notify_code == NC_FILE_SKIP)
-              log_reader_restart(self->reader);
-            break;
-          }
-        if (affile_sd_open_file(self, filename, &fd))
-          {
-            LogProto *proto;
+           if (!filename)
+             {
+               if (notify_code == NC_FILE_SKIP)
+                 log_reader_restart(self->reader);
+               break;
+             }
 
-
-            g_string_assign(self->filename, filename);
-            g_free(filename);
-            filename = NULL;
-
-            msg_debug("Monitoring new file",
-                      evt_tag_str("filename", self->filename->str),
-                      NULL);
-
-            proto = _affile_sd_construct_proto(self, fd);
-
-            if (!end_of_list)
-              {
-                immediate_check = TRUE;
-              }
-
-            if (notify_code == NC_FILE_SKIP)
-              {
-                immediate_check = TRUE;
-              }
-
-            affile_sd_recover_state(s, cfg, proto);
-            log_reader_reopen(self->reader, proto, s, &self->reader_options, 1, SCS_FILE, self->super.super.id, self->filename->str, immediate_check, (LogProtoOptions *)options);
-          }
-         else
-          {
            if (!end_of_list)
-           {
-             /* Can't open file it means, that this file is deleted continue to read file till eof and finally release it */
-              goto get_next_file;
-           }
-           else
-           {
-             log_reader_restart(self->reader);
-           }
-          }
+             {
+               immediate_check = TRUE;
+             }
+
+           if (notify_code == NC_FILE_SKIP)
+             {
+               immediate_check = TRUE;
+             }
+
+        } while (!affile_sd_switch_to_next_file(s, filename, end_of_list, immediate_check));
+
         break;
       }
     default:
@@ -528,7 +526,7 @@ affile_sd_skip_old_messages(LogSrcDriver *s, GlobalConfig *cfg)
   if (self->file_monitor)
     {
       gpointer args[] = {self, cfg};
-      cap_t old_caps; 
+      cap_t old_caps;
       file_monitor_set_file_callback(self->file_monitor, affile_sd_collect_files, args);
       old_caps = file_monitor_raise_caps(self->file_monitor);
       if (!file_monitor_watch_directory(self->file_monitor, self->filename_pattern->str))
@@ -556,7 +554,7 @@ _affile_sd_construct_transport(AFFileSourceDriver *self, gint fd)
       transport = log_transport_nullimator_new(fd, 0);
     else
       transport = log_transport_plain_new(fd, 0);
-    transport->timeout = 10;
+    transport->timeout = FILE_DEFAULT_TIMEOUT;
     return transport;
 }
 
