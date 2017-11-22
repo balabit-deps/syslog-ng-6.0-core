@@ -430,7 +430,11 @@ affile_sd_add_to_idle_file(AFFileSourceDriver *self)
 
       IdleFile *idle_file = lookup_idle_file_by_name(self->idle_file_list, self->filename->str);
 
-      const time_t timeout_expires_at = log_reader_get_last_msg_time((LogReader*)self->reader) + FILE_DEFAULT_TIMEOUT;
+      time_t last_msg_time = log_reader_get_last_msg_time((LogReader*)self->reader);
+
+      if (0 == last_msg_time) last_msg_time = cached_g_current_time_sec();
+
+      const time_t timeout_expires_at = last_msg_time + FILE_DEFAULT_TIMEOUT;
       if (NULL == idle_file) {
           idle_file = idle_file_new(g_strdup(self->filename->str), timeout_expires_at);
           g_queue_push_head(self->idle_file_list, idle_file);
@@ -443,7 +447,7 @@ min_value(gpointer a, gpointer user_data)
 {
     const IdleFile *self = (IdleFile*)a;
     const time_t now = cached_g_current_time_sec();
-    const glong second_till_now = difftime(self->last_msg, now);
+    const glong second_till_now = difftime(self->expires, now);
     time_t *min_value = (time_t*)user_data;
     if (second_till_now < *min_value) *min_value = second_till_now;
 }
@@ -929,15 +933,15 @@ affile_sd_open(LogPipe *s, gboolean immediate_check)
 void
 affile_sd_add_to_file_list(gpointer a, gpointer user_data)
 {
-   IdleFile *a_self = (IdleFile*)a;
+   IdleFile *idle_file = (IdleFile*)a;
    time_t *time = (time_t*)((gpointer*)user_data)[0];
    AFFileSourceDriver *self = (AFFileSourceDriver*)((gpointer*)user_data)[1];
 
-   const double diff = difftime(*time, a_self->last_msg);
+   const double diff = difftime(*time, idle_file->expires);
 
    if (diff <= 0) {
-      msg_debug("New file pushed to file_list: ", evt_tag_str("filename", a_self->path), NULL);
-      affile_sd_add_file_to_the_queue(self, a_self->path);
+      msg_debug("New file pushed to file_list: ", evt_tag_str("filename", idle_file->path), NULL);
+      affile_sd_add_file_to_the_queue(self, idle_file->path);
    }
 }
 
@@ -1035,6 +1039,11 @@ affile_sd_deinit(LogPipe *s)
   if (self->file_monitor)
     {
       file_monitor_deinit(self->file_monitor);
+    }
+
+  if (iv_timer_registered(&self->idle_file_timeout))
+    {
+      iv_timer_unregister(&self->idle_file_timeout);
     }
 
   affile_sd_regex_free(options->opts.prefix_matcher);
