@@ -172,7 +172,7 @@ void affile_file_monitor_init(AFFileSourceDriver *self, const gchar *filename)
   {
     self->file_monitor = file_monitor_create_instance(&self->monitor_options);
     self->file_list = uniq_queue_new();
-    self->idle_file = g_queue_new();
+    self->idle_file_list = g_queue_new();
   }
 }
 
