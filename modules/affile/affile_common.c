@@ -436,7 +436,7 @@ affile_sd_add_to_idle_file(AFFileSourceDriver *self)
 
       const time_t timeout_expires_at = last_msg_time + FILE_DEFAULT_TIMEOUT;
       if (NULL == idle_file) {
-          idle_file = idle_file_new(g_strdup(self->filename->str), timeout_expires_at);
+          idle_file = idle_file_new(self->filename->str, timeout_expires_at);
           g_queue_push_head(self->idle_file_list, idle_file);
       }
    }
