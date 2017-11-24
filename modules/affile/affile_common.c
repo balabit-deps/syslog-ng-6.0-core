@@ -478,7 +478,13 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
       IdleFile *idle_file = lookup_idle_file_by_name(self->idle_file_list, filename);
       if (NULL != idle_file) {
           msg_debug("IDLE_FILE removed", evt_tag_str("filename",idle_file->path), NULL);
-          g_queue_remove(self->idle_file_list, idle_file);
+          time_t time_until_current = 0xFFFFF;
+          min_value((gpointer)idle_file, &time_until_current);
+          if (time_until_current <= 0)
+            g_queue_remove(self->idle_file_list, idle_file);
+          else {
+            idle_file = NULL;
+          }
       }
       const time_t next_timeout = calculate_next_timeout(self->idle_file_list);
       msg_debug("Next Timeout", evt_tag_int("second", next_timeout), NULL);
