@@ -84,24 +84,6 @@ _raise_syslog_read_caps(OpenFileProperties *props)
     }
 }
 
-static gboolean
-_create_directory(gchar *name, OpenFileProperties *props)
-{
-  gboolean res = FALSE;
-
-  cap_t act_caps = g_process_cap_save();
-
-  raise_mkdir_permissions();
-
-  res = create_containing_directory(name,
-                                    props->dir_access.uid,
-                                    props->dir_access.gid,
-                                    props->dir_access.mode);
-  g_process_cap_restore(act_caps);
-
-  return res;
-}
-
 static inline gint
 affile_set_fd_permission(OpenFileProperties *props, int fd)
 {
@@ -168,7 +150,11 @@ affile_open_file(gchar *name, OpenFileProperties *props)
   if (affile_is_spurious_path(name, spurious_paths))
     return -1;
 
-  if (props->create_dirs && !_create_directory(name, props))
+  if (props->create_dirs &&
+      !create_containing_directory_with_capabilities(name,
+                                                     props->dir_access.uid,
+                                                     props->dir_access.gid,
+                                                     props->dir_access.mode))
     return -1;
 
   affile_check_file_type(name, props);
