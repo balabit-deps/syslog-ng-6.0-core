@@ -485,12 +485,14 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
 
       IdleFile *idle_file = lookup_idle_file_by_name(self->idle_file_list, filename);
       if (NULL != idle_file) {
-          if (idle_file_is_expired(idle_file))
-            g_queue_remove(self->idle_file_list, idle_file);
-          else {
-            idle_file = NULL;
-          }
+        if (idle_file_is_expired(idle_file)) {
+          g_queue_remove(self->idle_file_list, idle_file);
+          idle_file_free(idle_file);
+        } else {
+          idle_file = NULL;
+        }
       }
+
       const time_t next_timeout = calculate_next_timeout(self->idle_file_list);
       msg_debug("Next Timeout", evt_tag_int("second", next_timeout), NULL);
       if (next_timeout >= 0)
@@ -506,20 +508,20 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
         }
       else
         {
-	  if (end_of_list)
-	    {
-	      log_reader_restart(self->reader);
-	    }
-	  else
-	    {
-	      /* Can't open file it means, that this file is deleted continue to
+          if (end_of_list)
+            {
+              log_reader_restart(self->reader);
+            }
+          else
+            {
+              /* Can't open file it means, that this file is deleted continue to
                  read file till eof and finally release it */
-	      return FALSE;
-	    }
+              return FALSE;
+            }
         }
 
       if (NULL != idle_file) {
-          msg_debug("Force flush", evt_tag_str("filename", idle_file->path), NULL);
+          msg_debug("Force flush", evt_tag_str("filename", self->filename->str), NULL);
           log_reader_force_flush_buffer((LogReader*)self->reader);
       }
 
