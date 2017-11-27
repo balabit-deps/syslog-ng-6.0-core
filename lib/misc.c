@@ -552,6 +552,26 @@ create_containing_directory(gchar *name, gint dir_uid, gint dir_gid, gint dir_mo
   return TRUE;
 }
 
+/*
+ * Like create_containing_directory, but raises capabilities first.
+ */
+gboolean
+create_containing_directory_with_capabilities(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
+{
+  gboolean res = FALSE;
+
+  cap_t act_caps = g_process_cap_save();
+
+  raise_mkdir_permissions();
+
+  res = create_containing_directory(name,
+                                    dir_uid,
+                                    dir_gid,
+                                    dir_mode);
+  g_process_cap_restore(act_caps);
+
+  return res;
+}
 
 gchar *
 find_file_in_path(const gchar *path, const gchar *filename, GFileTest test)
