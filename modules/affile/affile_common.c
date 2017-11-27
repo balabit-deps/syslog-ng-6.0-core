@@ -442,14 +442,22 @@ affile_sd_add_to_idle_file(AFFileSourceDriver *self)
    }
 }
 
-void
-min_value(gpointer a, gpointer user_data)
+static gboolean
+idle_file_is_expired(const IdleFile *self)
 {
-    const IdleFile *self = (IdleFile*)a;
-    const time_t now = cached_g_current_time_sec();
-    const glong second_till_now = difftime(self->expires, now);
-    time_t *min_value = (time_t*)user_data;
-    if (second_till_now < *min_value) *min_value = second_till_now;
+    const double remaining_time = difftime(self->expires, cached_g_current_time_sec());
+
+    return remaining_time <= 0;
+}
+
+static void
+min_value(const IdleFile *self, time_t *min_value)
+{
+  const time_t now = cached_g_current_time_sec();
+  const glong remaining_time = difftime(self->expires, now);
+
+  if (remaining_time < *min_value)
+    *min_value = remaining_time;
 }
 
 gint
@@ -460,7 +468,7 @@ calculate_next_timeout(GQueue *queue)
    if (g_queue_is_empty(queue))
       return -1;
 
-   g_queue_foreach(queue, min_value, &closest_timestamp);
+   g_queue_foreach(queue, (GFunc)min_value, &closest_timestamp);
 
    /* ivykis: should not start a timer with zero timeout */
    const int IVYKIS_MIN_TIMEDELTA = 1;
@@ -477,10 +485,7 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
 
       IdleFile *idle_file = lookup_idle_file_by_name(self->idle_file_list, filename);
       if (NULL != idle_file) {
-          msg_debug("IDLE_FILE removed", evt_tag_str("filename",idle_file->path), NULL);
-          time_t time_until_current = 0xFFFFF;
-          min_value((gpointer)idle_file, &time_until_current);
-          if (time_until_current <= 0)
+          if (idle_file_is_expired(idle_file))
             g_queue_remove(self->idle_file_list, idle_file);
           else {
             idle_file = NULL;
@@ -501,15 +506,16 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
         }
       else
         {
-         if (!end_of_list)
-         {
-           /* Can't open file it means, that this file is deleted continue to read file till eof and finally release it */
-            return FALSE;
-         }
-         else
-         {
-           log_reader_restart(self->reader);
-         }
+	  if (end_of_list)
+	    {
+	      log_reader_restart(self->reader);
+	    }
+	  else
+	    {
+	      /* Can't open file it means, that this file is deleted continue to
+                 read file till eof and finally release it */
+	      return FALSE;
+	    }
         }
 
       if (NULL != idle_file) {
