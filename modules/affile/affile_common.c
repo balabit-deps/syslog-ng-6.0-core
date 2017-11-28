@@ -492,6 +492,12 @@ pop_idle_if_expired(AFFileSourceDriver *self, gchar *filename)
     g_queue_remove(self->idle_file_list, idle_file);
     idle_file_free(idle_file);
     return TRUE;
+  } else {
+    if (affile_sd_is_data_in_buffer(self))
+      {
+        time_t next_timeout = log_reader_get_last_msg_time((LogReader*)self->reader) + FILE_DEFAULT_TIMEOUT;
+        idle_file_set_expires(idle_file, next_timeout);
+      }
   }
 
   return FALSE;
