@@ -476,22 +476,36 @@ calculate_next_timeout(GQueue *queue)
 }
 
 static gboolean
+filename_is_active_file(AFFileSourceDriver *self, const gchar *filename)
+{
+  return 0 == strcmp(filename, self->filename->str);
+}
+
+static gboolean
+pop_idle_if_expired(AFFileSourceDriver *self, gchar *filename)
+{
+  IdleFile *idle_file = lookup_idle_file_by_name(self->idle_file_list, filename);
+  if (NULL == idle_file)
+    return FALSE;
+
+  if (idle_file_is_expired(idle_file)) {
+    g_queue_remove(self->idle_file_list, idle_file);
+    idle_file_free(idle_file);
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+static gboolean
 affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list, gboolean immediate_check)
 {
       AFFileSourceDriver *self = (AFFileSourceDriver *) s;
 
-      if (0 != strcmp(filename, self->filename->str))
+      if (!filename_is_active_file(self, filename))
           affile_sd_add_to_idle_file(self);
 
-      IdleFile *idle_file = lookup_idle_file_by_name(self->idle_file_list, filename);
-      if (NULL != idle_file) {
-        if (idle_file_is_expired(idle_file)) {
-          g_queue_remove(self->idle_file_list, idle_file);
-          idle_file_free(idle_file);
-        } else {
-          idle_file = NULL;
-        }
-      }
+      const gboolean should_flush_idle_file = pop_idle_if_expired(self, filename);
 
       const time_t next_timeout = calculate_next_timeout(self->idle_file_list);
       msg_debug("Next Timeout", evt_tag_int("second", next_timeout), NULL);
@@ -520,7 +534,7 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
             }
         }
 
-      if (NULL != idle_file) {
+      if (should_flush_idle_file) {
           msg_debug("Force flush", evt_tag_str("filename", self->filename->str), NULL);
           log_reader_force_flush_buffer((LogReader*)self->reader);
       }
