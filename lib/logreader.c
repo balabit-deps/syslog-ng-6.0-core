@@ -975,12 +975,14 @@ log_reader_fetch_log(LogReader *self)
           g_assert_not_reached();
           break;
         }
-      self->last_msg_received = cached_g_current_time_sec();
+
       if (!msg)
         {
           /* no more messages for now */
           break;
         }
+
+      self->last_msg_received = cached_g_current_time_sec();
       if (msg_len > 0 || (self->options->flags & LR_EMPTY_LINES))
         {
           msg_count++;
