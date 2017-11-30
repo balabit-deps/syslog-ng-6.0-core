@@ -438,6 +438,7 @@ affile_sd_add_to_idle_file(AFFileSourceDriver *self)
       if (NULL == idle_file) {
           idle_file = idle_file_new(self->filename->str, timeout_expires_at);
           g_queue_push_head(self->idle_file_list, idle_file);
+          msg_trace("idle file: new file pushed to idle_file_list", evt_tag_str("filename", idle_file->path), NULL);
       }
    }
 }
@@ -514,7 +515,7 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
       const gboolean should_flush_idle_file = pop_idle_if_expired(self, filename);
 
       const time_t next_timeout = calculate_next_timeout(self->idle_file_list);
-      msg_debug("Next Timeout", evt_tag_int("second", next_timeout), NULL);
+      msg_trace("Idle file next timeout:", evt_tag_int("second", next_timeout), NULL);
       if (next_timeout >= 0)
          affile_idle_file_timeout_set_wakeup(&self->idle_file_timeout, next_timeout);
 
@@ -541,7 +542,7 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
         }
 
       if (should_flush_idle_file) {
-          msg_debug("Force flush", evt_tag_str("filename", self->filename->str), NULL);
+          msg_debug("Force flush idle file", evt_tag_str("filename", self->filename->str), NULL);
           log_reader_force_flush_buffer((LogReader*)self->reader);
       }
 
@@ -552,7 +553,6 @@ affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list,
 void
 affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_data)
 {
-  msg_debug("start affile_sd_notify", NULL);
   AFFileSourceDriver *self = (AFFileSourceDriver *) s;
   GlobalConfig *cfg = log_pipe_get_config(s);
   gchar *filename = NULL;
@@ -974,7 +974,7 @@ affile_sd_add_to_file_list(gpointer a, gpointer user_data)
    const double diff = difftime(*time, idle_file->expires);
 
    if (diff <= 0) {
-      msg_debug("New file pushed to file_list: ", evt_tag_str("filename", idle_file->path), NULL);
+      msg_trace("file_list: new file pushed to file_list", evt_tag_str("filename", idle_file->path), NULL);
       affile_sd_add_file_to_the_queue(self, idle_file->path);
    }
 }
