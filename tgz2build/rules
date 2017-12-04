@@ -44,9 +44,12 @@ endif
 
 ifneq (,$(findstring linux-glibc2.11,$(ZBS_DIST)))
   CONFIGURE_OPTS+= --enable-java
-ifneq (,$(findstring amd64,$(ZBS_ARCH)))
-  CONFIGURE_OPTS+= $(TGZ_BUILD_OPTS) --enable-systemd --enable-indexer
-endif
+  ifneq (,$(findstring amd64,$(ZBS_ARCH)))
+    CONFIGURE_OPTS+= --enable-systemd --enable-indexer
+    ifneq (,$(findstring indexer,$(TGZ_BUILD_OPTS)))
+      CONFIGURE_OPTS+= --enable-indexer-func-tests
+    endif
+  endif
 endif
 
 # FreeBSD 9.0 have sys/capabilities.h support, but bifferent than linux caps
