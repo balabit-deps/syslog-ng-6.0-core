@@ -114,6 +114,7 @@ struct _LogReader
   gboolean wait_for_prefix;
   gboolean flush;
   time_t last_msg_received;
+  time_t last_msg_parsed;
 
   gboolean pending_proto_present;
   GCond *pending_proto_cond;
@@ -134,7 +135,7 @@ static void log_reader_set_pending_proto(LogReader *self, LogProto *proto);
 time_t
 log_reader_get_last_msg_time(LogReader *self)
 {
-  return self->last_msg_received;
+  return self->last_msg_parsed;
 }
 
 static void
@@ -431,6 +432,7 @@ log_reader_check_file(gpointer s)
              (self->last_msg_received + MAX_MSG_TIMEOUT < cached_g_current_time_sec()))
             {
               self->last_msg_received = 0;
+              self->last_msg_parsed = 0;
               log_reader_flush_buffer(self, FALSE);
             }
           self->size = st.st_size;
@@ -457,6 +459,7 @@ log_reader_force_flush_buffer(LogReader *self)
   if (fstat(fd, &st) >= 0 && pos == st.st_size)
     {
       self->last_msg_received = 0;
+      self->last_msg_parsed = 0;
       log_reader_flush_buffer(self, FALSE);
 
       self->size = st.st_size;
@@ -975,14 +978,13 @@ log_reader_fetch_log(LogReader *self)
           g_assert_not_reached();
           break;
         }
-
+      self->last_msg_received = cached_g_current_time_sec();
       if (!msg)
         {
           /* no more messages for now */
           break;
         }
-
-      self->last_msg_received = cached_g_current_time_sec();
+      self->last_msg_parsed = cached_g_current_time_sec();
       if (msg_len > 0 || (self->options->flags & LR_EMPTY_LINES))
         {
           msg_count++;
@@ -1248,6 +1250,7 @@ log_reader_new(LogProto *proto)
 
   log_reader_init_watches(self);
   self->last_msg_received = 0;
+  self->last_msg_parsed = 0;
   g_static_mutex_init(&self->pending_proto_lock);
   self->pending_proto_cond = g_cond_new();
   return &self->super.super;
