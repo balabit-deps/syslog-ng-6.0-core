@@ -61,8 +61,8 @@
  * here, each driver specific hack was added to logreader, making it
  * much more difficult to read and modify.
  *
- * Examples: 
- * 
+ * Examples:
+ *
  *  - file position tracking, follow-freq and immediate-check are file
  *    source specific
  *  - name resolution and peer addresses applies only to network based sources
@@ -114,6 +114,7 @@ struct _LogReader
   gboolean wait_for_prefix;
   gboolean flush;
   time_t last_msg_received;
+  time_t last_msg_parsed;
 
   gboolean pending_proto_present;
   GCond *pending_proto_cond;
@@ -130,6 +131,12 @@ static void log_reader_update_watches(LogReader *self);
 static void log_reader_free_proto(LogReader *self);
 static void log_reader_set_proto(LogReader *self, LogProto *proto);
 static void log_reader_set_pending_proto(LogReader *self, LogProto *proto);
+
+time_t
+log_reader_get_last_msg_time(LogReader *self)
+{
+  return self->last_msg_parsed;
+}
 
 static void
 log_reader_work_perform(void *s)
@@ -408,7 +415,7 @@ log_reader_check_file(gpointer s)
   off_t pos = -1;
   gint fd = log_proto_get_fd(self->proto);
 
-  if (fd >= 0)
+  if (fd > 0)
     {
       pos = lseek(fd, 0, SEEK_CUR);
       if (pos == (off_t) -1)
@@ -425,6 +432,7 @@ log_reader_check_file(gpointer s)
              (self->last_msg_received + MAX_MSG_TIMEOUT < cached_g_current_time_sec()))
             {
               self->last_msg_received = 0;
+              self->last_msg_parsed = 0;
               log_reader_flush_buffer(self, FALSE);
             }
           self->size = st.st_size;
@@ -432,6 +440,30 @@ log_reader_check_file(gpointer s)
         }
     }
   return;
+}
+
+void
+log_reader_force_flush_buffer(LogReader *self)
+{
+  struct stat st;
+  off_t pos = -1;
+  gint fd = log_proto_get_fd(self->proto);
+
+  if (fd < 0)
+     return;
+
+  pos = lseek(fd, 0, SEEK_CUR);
+  if (pos == (off_t) -1)
+      return;
+
+  if (fstat(fd, &st) >= 0 && pos == st.st_size)
+    {
+      self->last_msg_received = 0;
+      self->last_msg_parsed = 0;
+      log_reader_flush_buffer(self, FALSE);
+
+      self->size = st.st_size;
+    }
 }
 
 static void
@@ -598,7 +630,7 @@ log_reader_update_watches(LogReader *self)
   gint idle_timeout = -1;
 
   main_loop_assert_main_thread();
-  
+
   self->suspended = FALSE;
   free_to_send = log_source_free_to_send(&self->super);
   prepare_result = log_proto_prepare(self->proto, &fd, &cond, &idle_timeout);
@@ -952,6 +984,7 @@ log_reader_fetch_log(LogReader *self)
           /* no more messages for now */
           break;
         }
+      self->last_msg_parsed = cached_g_current_time_sec();
       if (msg_len > 0 || (self->options->flags & LR_EMPTY_LINES))
         {
           msg_count++;
@@ -1038,7 +1071,7 @@ static gboolean
 log_reader_deinit(LogPipe *s)
 {
   LogReader *self = (LogReader *) s;
-  
+
   main_loop_assert_main_thread();
   g_assert(!self->io_job.working);
 
@@ -1217,16 +1250,17 @@ log_reader_new(LogProto *proto)
 
   log_reader_init_watches(self);
   self->last_msg_received = 0;
+  self->last_msg_parsed = 0;
   g_static_mutex_init(&self->pending_proto_lock);
   self->pending_proto_cond = g_cond_new();
   return &self->super.super;
 }
 
-void 
+void
 log_reader_set_immediate_check(LogPipe *s)
 {
   LogReader *self = (LogReader*) s;
-  
+
   self->immediate_check = TRUE;
 }
 
@@ -1238,7 +1272,7 @@ log_reader_options_defaults(LogReaderOptions *options)
   options->padding = 0;
   options->fetch_limit = 10;
   options->msg_size = -1;
-  options->follow_freq = -1; 
+  options->follow_freq = -1;
   options->text_encoding = NULL;
   if (!cfg_check_current_config_version(VERSION_VALUE_3_0))
     {
@@ -1257,7 +1291,7 @@ log_reader_options_defaults(LogReaderOptions *options)
  * NOTE: options_init and options_destroy are a bit weird, because their
  * invocation is not completely symmetric:
  *
- *   - init is called from driver init (e.g. affile_sd_init), 
+ *   - init is called from driver init (e.g. affile_sd_init),
  *   - destroy is called from driver free method (e.g. affile_sd_free, NOT affile_sd_deinit)
  *
  * The reason:
@@ -1273,7 +1307,7 @@ log_reader_options_defaults(LogReaderOptions *options)
  *
  * As init allocates memory, it has to take care about freeing memory
  * allocated by the previous init call (or it has to reuse those).
- *   
+ *
  */
 void
 log_reader_options_init(LogReaderOptions *options, GlobalConfig *cfg, const gchar *group_name)
@@ -1294,7 +1328,7 @@ log_reader_options_init(LogReaderOptions *options, GlobalConfig *cfg, const gcha
   /* NOTE: having to save super's variables is a crude hack, but I know of
    * no other way to do it in the scheme described above. Be sure that you
    * know what you are doing when you modify this code. */
-  
+
   tags = options->super.tags;
   options->super.tags = NULL;
   host_override = options->super.host_override;
@@ -1319,7 +1353,7 @@ log_reader_options_init(LogReaderOptions *options, GlobalConfig *cfg, const gcha
   options->super.host_override = host_override;
   options->super.program_override = program_override;
   options->super.tags = tags;
-  
+
   options->parse_options.recv_time_zone = recv_time_zone;
   options->parse_options.recv_time_zone_info = recv_time_zone_info;
   options->text_encoding = text_encoding;

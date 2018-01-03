@@ -20,7 +20,7 @@
  * COPYING for details.
  *
  */
-  
+
 #ifndef SDFILE_H_INCLUDED
 #define SDFILE_H_INCLUDED
 
@@ -52,8 +52,10 @@ typedef struct _AFFileSourceDriver
   /* state information to follow a set of files using a wildcard expression */
   FileMonitor *file_monitor;
   UniqQueue *file_list;
+  GQueue *idle_file_list;
   gboolean is_regular;
   gboolean replace_null_characters;
+  struct iv_timer idle_file_timeout;
 } AFFileSourceDriver;
 
 LogDriver *affile_sd_new(gchar *filename, guint32 flags);
@@ -86,7 +88,7 @@ typedef struct _AFFileDestDriver
   LogProtoOptions proto_options;
   LogProtoFactory *proto_factory;
   GHashTable *writer_hash;
-    
+
   gint overwrite_if_older;
   gboolean use_time_recvd;
   gint time_reap;

@@ -13,6 +13,8 @@ libaffile_la_SOURCES =   \
   affile-plugin.c        \
   uniq_queue.c           \
   uniq_queue.h           \
+  idle_file.c            \
+  idle_file.h            \
   affile_common.h        \
   affile_common.c        \
   affile.h               \

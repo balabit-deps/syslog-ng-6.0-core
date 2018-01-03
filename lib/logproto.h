@@ -140,11 +140,21 @@ struct _LogProto
   /* This function is available only the object is _LogProtoTextServer */
   guint64 (*get_pending_pos)(LogProto *s, Bookmark *bookmark);
   void (*apply_state)(LogProto *s, StateHandler *state_handler);
+  gboolean (*is_everything_sent)(LogProto *s);
   gboolean is_multi_line;
   LogProtoOptions *options;
 
   LogProtoFlowControlFuncs flow_control_funcs;
 };
+
+static inline gboolean
+log_proto_is_everything_sent(LogProto *self)
+{
+   if (self->is_everything_sent)
+      return self->is_everything_sent(self);
+
+   return TRUE;
+}
 
 static inline void
 log_proto_set_flow_control_funcs(LogProto *self, LogProtoFlowControlFuncs *flow_control_funcs)
