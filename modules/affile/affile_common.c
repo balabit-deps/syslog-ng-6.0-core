@@ -34,6 +34,7 @@
 #include "mainloop-io-worker.h"
 #include "filemonitor/filemonitor.h"
 #include "versioning.h"
+#include "idle_file.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -46,6 +47,8 @@
 #if __FreeBSD__
 #include <sys/utsname.h>
 #endif
+
+static const int FILE_DEFAULT_TIMEOUT = 10; //in seconds
 
 static gchar *pid_string = NULL;
 
@@ -355,8 +358,8 @@ affile_sd_reset_file_state(PersistState *state, const gchar *old_persist_name)
   g_free(new_persist_name);
 }
 
-static void
-affile_sd_reopen_file(LogPipe *s)
+static gboolean
+affile_sd_reopen_file(LogPipe *s, const gboolean immediate_check)
 {
   gint fd;
   LogProto *proto;
@@ -364,13 +367,186 @@ affile_sd_reopen_file(LogPipe *s)
   LogProtoServerOptions *options = (LogProtoServerOptions *)&self->proto_options;
   GlobalConfig *cfg = log_pipe_get_config(s);
 
-  affile_sd_open_file(self, self->filename->str, &fd);
+  if (!affile_sd_open_file(self, self->filename->str, &fd))
+     return FALSE;
 
   proto = _affile_sd_construct_proto(self, fd);
 
   affile_sd_recover_state(s, cfg, proto);
 
-  log_reader_reopen(self->reader, proto, s, &self->reader_options, 1, SCS_FILE, self->super.super.id, self->filename->str, FALSE, (LogProtoOptions *)options);
+  log_reader_reopen(self->reader, proto, s, &self->reader_options, 1, SCS_FILE, self->super.super.id, self->filename->str, immediate_check, (LogProtoOptions *)options);
+
+  return TRUE;
+}
+
+gboolean
+affile_sd_is_data_in_buffer(AFFileSourceDriver *self)
+{
+   LogProto *proto = log_reader_get_proto((LogReader*)self->reader);
+   return log_proto_is_everything_sent(proto);
+}
+
+void
+affile_idle_file_timeout_set_wakeup(struct iv_timer *timer, glong second)
+{
+   if (iv_timer_registered(timer)) {
+      iv_timer_unregister(timer);
+   }
+
+  iv_validate_now();
+  timer->expires = iv_now;
+  timespec_add_msec(&timer->expires, 1000*second);
+  iv_timer_register(timer);
+}
+
+gint
+compare_idle_file(gconstpointer a, gconstpointer b)
+{
+   IdleFile *a_self = (IdleFile*)a;
+   gchar *b_self = (gchar*)b;
+
+   return strcmp(a_self->path, b_self);
+}
+
+IdleFile*
+lookup_idle_file_by_name(GQueue *queue, gchar *filename)
+{
+    IdleFile *idle_file = NULL;
+    GList      *item        = NULL;
+
+    if (filename)
+       item = g_queue_find_custom(queue, filename, compare_idle_file);
+
+    if (item)
+       idle_file = item->data;
+
+    return idle_file;
+}
+
+void
+affile_sd_add_to_idle_file(AFFileSourceDriver *self)
+{
+   if (affile_sd_is_data_in_buffer(self)) {
+
+      IdleFile *idle_file = lookup_idle_file_by_name(self->idle_file_list, self->filename->str);
+
+      time_t last_msg_time = log_reader_get_last_msg_time((LogReader*)self->reader);
+
+      if (0 == last_msg_time) last_msg_time = cached_g_current_time_sec();
+
+      const time_t timeout_expires_at = last_msg_time + FILE_DEFAULT_TIMEOUT;
+      if (NULL == idle_file) {
+          idle_file = idle_file_new(self->filename->str, timeout_expires_at);
+          g_queue_push_head(self->idle_file_list, idle_file);
+          msg_trace("idle file: new file pushed to idle_file_list", evt_tag_str("filename", idle_file->path), NULL);
+      }
+   }
+}
+
+static gboolean
+idle_file_is_expired(const IdleFile *self)
+{
+    const double remaining_time = difftime(self->expires, cached_g_current_time_sec());
+
+    return remaining_time <= 0;
+}
+
+static void
+min_value(const IdleFile *self, time_t *min_value)
+{
+  const time_t now = cached_g_current_time_sec();
+  const glong remaining_time = difftime(self->expires, now);
+
+  if (remaining_time < *min_value)
+    *min_value = remaining_time;
+}
+
+gint
+calculate_next_timeout(GQueue *queue)
+{
+   time_t closest_timestamp = 0xFFFF;
+
+   if (g_queue_is_empty(queue))
+      return -1;
+
+   g_queue_foreach(queue, (GFunc)min_value, &closest_timestamp);
+
+   /* ivykis: should not start a timer with zero timeout */
+   const int IVYKIS_MIN_TIMEDELTA = 1;
+   return MAX(closest_timestamp, IVYKIS_MIN_TIMEDELTA);
+}
+
+static gboolean
+filename_is_active_file(AFFileSourceDriver *self, const gchar *filename)
+{
+  return 0 == strcmp(filename, self->filename->str);
+}
+
+static gboolean
+pop_idle_if_expired(AFFileSourceDriver *self, gchar *filename)
+{
+  IdleFile *idle_file = lookup_idle_file_by_name(self->idle_file_list, filename);
+  if (NULL == idle_file)
+    return FALSE;
+
+  if (idle_file_is_expired(idle_file)) {
+    g_queue_remove(self->idle_file_list, idle_file);
+    idle_file_free(idle_file);
+    return TRUE;
+  } else {
+    if (affile_sd_is_data_in_buffer(self))
+      {
+        time_t next_timeout = log_reader_get_last_msg_time((LogReader*)self->reader) + FILE_DEFAULT_TIMEOUT;
+        idle_file_set_expires(idle_file, next_timeout);
+      }
+  }
+
+  return FALSE;
+}
+
+static gboolean
+affile_sd_switch_to_next_file(LogPipe *s, gchar *filename, gboolean end_of_list, gboolean immediate_check)
+{
+      AFFileSourceDriver *self = (AFFileSourceDriver *) s;
+
+      if (!filename_is_active_file(self, filename))
+          affile_sd_add_to_idle_file(self);
+
+      const gboolean should_flush_idle_file = pop_idle_if_expired(self, filename);
+
+      const time_t next_timeout = calculate_next_timeout(self->idle_file_list);
+      msg_trace("Idle file next timeout:", evt_tag_int("second", next_timeout), NULL);
+      if (next_timeout >= 0)
+         affile_idle_file_timeout_set_wakeup(&self->idle_file_timeout, next_timeout);
+
+      g_string_assign(self->filename, filename);
+      g_free(filename);
+      filename = NULL;
+
+      if (affile_sd_reopen_file(s, immediate_check))
+        {
+          msg_debug("Monitoring new file", evt_tag_str("filename", self->filename->str), NULL);
+        }
+      else
+        {
+          if (end_of_list)
+            {
+              log_reader_restart(self->reader);
+            }
+          else
+            {
+              /* Can't open file it means, that this file is deleted continue to
+                 read file till eof and finally release it */
+              return FALSE;
+            }
+        }
+
+      if (should_flush_idle_file) {
+          msg_debug("Force flush idle file", evt_tag_str("filename", self->filename->str), NULL);
+          log_reader_force_flush_buffer((LogReader*)self->reader);
+      }
+
+      return TRUE;
 }
 
 /* NOTE: runs in the main thread */
@@ -379,9 +555,7 @@ affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_da
 {
   AFFileSourceDriver *self = (AFFileSourceDriver *) s;
   GlobalConfig *cfg = log_pipe_get_config(s);
-  LogProtoServerOptions *options = (LogProtoServerOptions *)&self->proto_options;
   gchar *filename = NULL;
-  gint fd;
 
   g_assert((user_data == NULL) || (user_data == self->reader));
 
@@ -392,7 +566,7 @@ affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_da
         msg_verbose("Follow-mode file source reading failed, try to reopen file",
                     evt_tag_str("filename", self->filename->str),
                     NULL);
-        affile_sd_reopen_file(s);
+        affile_sd_reopen_file(s,FALSE);
         break;
       }
     case NC_FILE_MOVED:
@@ -400,15 +574,7 @@ affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_da
         msg_verbose("Follow-mode file source moved, tracking of the new file is started",
                     evt_tag_str("filename", self->filename->str),
                     NULL);
-        if (affile_sd_open_file(self, self->filename->str, &fd))
-          {
-            LogProto *proto = _affile_sd_construct_proto(self, fd);
-
-            affile_sd_recover_state(s, cfg, proto);
-
-            log_reader_reopen(self->reader, proto, s, &self->reader_options, 1, SCS_FILE, self->super.super.id, self->filename->str, TRUE, (LogProtoOptions *)options);
-          }
-        else
+        if (!affile_sd_reopen_file(s,TRUE))
           {
             log_reader_attempt_deinit(self->reader);
             log_pipe_unref(self->reader);
@@ -431,66 +597,39 @@ affile_sd_notify(LogPipe *s, LogPipe *sender, gint notify_code, gpointer user_da
     case NC_CLOSE:
     case NC_FILE_EOF:
       {
-        gint fd = -1;
         gboolean end_of_list = TRUE;
         gboolean immediate_check = FALSE;
-get_next_file:
+
         if (!self->file_monitor)
           {
             break;
           }
 
-        filename = affile_pop_next_file(s, &end_of_list);
+        do {
+           filename = affile_pop_next_file(s, &end_of_list);
 
-        if (end_of_list && notify_code == NC_FILE_SKIP)
-          affile_sd_monitor_pushback_filename(self, END_OF_LIST);
+           if (end_of_list && notify_code == NC_FILE_SKIP)
+             affile_sd_monitor_pushback_filename(self, END_OF_LIST);
 
-        if (!filename)
-          {
-            if (notify_code == NC_FILE_SKIP)
-              log_reader_restart(self->reader);
-            break;
-          }
-        if (affile_sd_open_file(self, filename, &fd))
-          {
-            LogProto *proto;
+           if (!filename)
+             {
+               if (notify_code == NC_FILE_SKIP)
+                 log_reader_restart(self->reader);
+               break;
+             }
 
-
-            g_string_assign(self->filename, filename);
-            g_free(filename);
-            filename = NULL;
-
-            msg_debug("Monitoring new file",
-                      evt_tag_str("filename", self->filename->str),
-                      NULL);
-
-            proto = _affile_sd_construct_proto(self, fd);
-
-            if (!end_of_list)
-              {
-                immediate_check = TRUE;
-              }
-
-            if (notify_code == NC_FILE_SKIP)
-              {
-                immediate_check = TRUE;
-              }
-
-            affile_sd_recover_state(s, cfg, proto);
-            log_reader_reopen(self->reader, proto, s, &self->reader_options, 1, SCS_FILE, self->super.super.id, self->filename->str, immediate_check, (LogProtoOptions *)options);
-          }
-         else
-          {
            if (!end_of_list)
-           {
-             /* Can't open file it means, that this file is deleted continue to read file till eof and finally release it */
-              goto get_next_file;
-           }
-           else
-           {
-             log_reader_restart(self->reader);
-           }
-          }
+             {
+               immediate_check = TRUE;
+             }
+
+           if (notify_code == NC_FILE_SKIP)
+             {
+               immediate_check = TRUE;
+             }
+
+        } while (!affile_sd_switch_to_next_file(s, filename, end_of_list, immediate_check));
+
         break;
       }
     default:
@@ -528,7 +667,7 @@ affile_sd_skip_old_messages(LogSrcDriver *s, GlobalConfig *cfg)
   if (self->file_monitor)
     {
       gpointer args[] = {self, cfg};
-      cap_t old_caps; 
+      cap_t old_caps;
       file_monitor_set_file_callback(self->file_monitor, affile_sd_collect_files, args);
       old_caps = file_monitor_raise_caps(self->file_monitor);
       if (!file_monitor_watch_directory(self->file_monitor, self->filename_pattern->str))
@@ -556,7 +695,7 @@ _affile_sd_construct_transport(AFFileSourceDriver *self, gint fd)
       transport = log_transport_nullimator_new(fd, 0);
     else
       transport = log_transport_plain_new(fd, 0);
-    transport->timeout = 10;
+    transport->timeout = FILE_DEFAULT_TIMEOUT;
     return transport;
 }
 
@@ -710,6 +849,13 @@ affile_sd_free(LogPipe *s)
       self->file_list = NULL;
     }
 
+   if (self->idle_file_list)
+    {
+      g_queue_foreach(self->idle_file_list, (GFunc)idle_file_free, NULL);
+      g_queue_free(self->idle_file_list);
+      self->idle_file_list = NULL;
+    }
+
   if (self->file_monitor)
     {
       file_monitor_free(self->file_monitor);
@@ -818,6 +964,43 @@ affile_sd_open(LogPipe *s, gboolean immediate_check)
   return TRUE;
 }
 
+void
+affile_sd_add_to_file_list(gpointer a, gpointer user_data)
+{
+   IdleFile *idle_file = (IdleFile*)a;
+   time_t *time = (time_t*)((gpointer*)user_data)[0];
+   AFFileSourceDriver *self = (AFFileSourceDriver*)((gpointer*)user_data)[1];
+
+   const double diff = difftime(*time, idle_file->expires);
+
+   if (diff <= 0) {
+      msg_trace("file_list: new file pushed to file_list", evt_tag_str("filename", idle_file->path), NULL);
+      affile_sd_add_file_to_the_queue(self, idle_file->path);
+   }
+}
+
+void
+affile_idle_file_timeout_schedule(gpointer p)
+{
+   AFFileSourceDriver *self = (AFFileSourceDriver*)p;
+   msg_debug("start affile_idle_file_timeout_schedule", NULL);
+
+   time_t now = cached_g_current_time_sec();
+   gpointer user_data[] = { &now, self };
+
+   g_queue_foreach(self->idle_file_list, affile_sd_add_to_file_list, user_data);
+
+   affile_sd_add_file_to_the_queue(self, self->filename->str);
+}
+
+void
+affile_sd_idle_file_timeout_init(AFFileSourceDriver *self)
+{
+  IV_TIMER_INIT(&self->idle_file_timeout);
+  self->idle_file_timeout.cookie = self;
+  self->idle_file_timeout.handler = affile_idle_file_timeout_schedule;
+}
+
 gboolean
 affile_sd_init(LogPipe *s)
 {
@@ -834,6 +1017,8 @@ affile_sd_init(LogPipe *s)
     }
 
   affile_file_monitor_init(self, self->filename_pattern->str);
+
+  affile_sd_idle_file_timeout_init(self);
 
   if (self->file_monitor)
     {
@@ -888,6 +1073,11 @@ affile_sd_deinit(LogPipe *s)
   if (self->file_monitor)
     {
       file_monitor_deinit(self->file_monitor);
+    }
+
+  if (iv_timer_registered(&self->idle_file_timeout))
+    {
+      iv_timer_unregister(&self->idle_file_timeout);
     }
 
   affile_sd_regex_free(options->opts.prefix_matcher);
