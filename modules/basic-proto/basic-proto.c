@@ -3010,5 +3010,9 @@ log_proto_buffered_server_is_data_in_buffer(LogProto *logproto)
   LogProtoBufferedServer *self = (LogProtoBufferedServer*)logproto;
   LogProtoBufferedServerState *state = log_proto_buffered_server_get_state(self);
 
-  return (state->pending_buffer_end > state->pending_buffer_pos);
+  const gboolean result = (state->pending_buffer_end > state->pending_buffer_pos);
+
+  log_proto_buffered_server_put_state(self);
+
+  return result;
 }
