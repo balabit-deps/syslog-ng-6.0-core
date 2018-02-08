@@ -1805,9 +1805,9 @@ affile_dd_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options,
 
   if (self->flags & AFFILE_NO_EXPAND)
     {
-      /* no need to lock the check below, the worst case that happens is
-       * that we go to the mainloop to return the same information, but this
-       * is not fast path anyway */
+
+      /* we need to lock single_writer in order to get a reference and
+       * make sure it is not a stale pointer by the time we ref it */
 
       g_static_mutex_lock(&self->lock);
       if (!self->single_writer)
@@ -1817,8 +1817,6 @@ affile_dd_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options,
         }
       else
         {
-          /* we need to lock single_writer in order to get a reference and
-           * make sure it is not a stale pointer by the time we ref it */
           next = self->single_writer;
           next->queue_pending = TRUE;
           log_pipe_ref(&next->super);
