@@ -88,6 +88,7 @@ EXTRA_DIST = \
 	common/src/test/java/org/syslog_ng/logging/test/MockLogDestination.java \
 	hdfs/src/main/java/org/syslog_ng/hdfs/HdfsDestination.java \
 	hdfs/src/main/java/org/syslog_ng/hdfs/HdfsOptions.java \
+	hdfs/src/main/java/org/syslog_ng/hdfs/HdfsFile.java \
 	http/src/main/java/org/syslog_ng/http/HTTPDestination.java \
 	http/src/main/java/org/syslog_ng/http/HTTPDestinationOptions.java \
 	dummy/src/main/java/org/syslog_ng/DummyTextDestination.java \
