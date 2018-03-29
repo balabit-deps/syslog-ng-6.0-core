@@ -512,6 +512,15 @@ log_source_options_init(LogSourceOptions *options, GlobalConfig *cfg, const gcha
   source_group_name = g_strdup_printf(".source.%s", group_name);
   options->source_group_tag = log_tags_get_by_name(source_group_name);
   g_free(source_group_name);
+
+  if (options->use_dns == 0) {
+    if (options->use_dns_cache != 0) {
+      msg_warning("With use-dns(no), use-dns-cache() will be forced to 'no' too!",
+                  evt_tag_str("source-group", group_name),
+                  NULL);
+    }
+    options->use_dns_cache = 0;
+  }
 }
 
 void
