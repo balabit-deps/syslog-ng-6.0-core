@@ -349,6 +349,14 @@ cfg_init(GlobalConfig *cfg)
         }
     }
 
+  if (cfg->use_dns == 0) {
+    if (cfg->use_dns_cache != 0) {
+      msg_warning("With global use-dns(no), use-dns-cache() will be forced to 'no' too!",
+                  NULL);
+    }
+    cfg->use_dns_cache = 0;
+  }
+
   cfg_init_global_internals(cfg);
   return log_center_init(cfg->center, cfg);
 }
