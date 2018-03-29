@@ -1210,7 +1210,7 @@ affile_dw_format_persist_name(AFFileDestWriter *self)
   return persist_name;
 }
 
-static gboolean affile_dd_reap_writer(AFFileDestDriver *self, AFFileDestWriter *dw);
+static void affile_dd_reap_writer(AFFileDestDriver *self, AFFileDestWriter *dw);
 
 void
 affile_dw_arm_reaper(AFFileDestWriter *self)
@@ -1239,8 +1239,21 @@ affile_dw_reap(gpointer s)
       return;
     }
 
-  if (!affile_dd_reap_writer(self->owner, self))
-    affile_dw_arm_reaper(self);
+  g_static_mutex_lock(&self->owner->lock);
+  if (!self->queue_pending)
+    {
+      msg_verbose("Destination timed out, reaping",
+                  evt_tag_str("template", self->owner->filename_template->template),
+                  evt_tag_str("filename", self->filename),
+                  NULL);
+      affile_dd_reap_writer(self->owner, self);
+      g_static_mutex_unlock(&self->owner->lock);
+    }
+  else
+    {
+      g_static_mutex_unlock(&self->owner->lock);
+      affile_dw_arm_reaper(self);
+    }
 }
 
 static gboolean
@@ -1511,23 +1524,13 @@ affile_dd_format_persist_name(AFFileDestDriver *self)
   return persist_name;
 }
 
-static gboolean
+/* DestDriver lock must be held before calling this function */
+static void
 affile_dd_reap_writer(AFFileDestDriver *self, AFFileDestWriter *dw)
 {
+  LogWriter *writer = (LogWriter *)dw->writer;
+
   main_loop_assert_main_thread();
-
-  g_static_mutex_lock(&self->lock);
-  if (dw->queue_pending)
-    {
-      g_static_mutex_unlock(&self->lock);
-      return FALSE;
-    }
-
-  msg_verbose("Destination timed out, reaping",
-              evt_tag_str("template", self->filename_template->template),
-              evt_tag_str("filename", dw->filename),
-              NULL);
-
 
   if ((self->flags & AFFILE_NO_EXPAND) == 0)
     {
@@ -1540,14 +1543,10 @@ affile_dd_reap_writer(AFFileDestDriver *self, AFFileDestWriter *dw)
       self->single_writer = NULL;
     }
 
-  LogQueue *queue = log_writer_get_queue((LogWriter *) dw->writer);
+  LogQueue *queue = log_writer_get_queue(writer);
   log_pipe_deinit(&dw->super);
   log_dest_driver_release_queue(&self->super, queue);
   log_pipe_unref(&dw->super);
-
-  g_static_mutex_unlock(&self->lock);
-
-  return TRUE;
 }
 
 
