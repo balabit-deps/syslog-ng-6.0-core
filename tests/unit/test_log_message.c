@@ -86,13 +86,17 @@ assert_sdata_value_equals(LogMessage *msg, const gchar *expected)
 
 
 void
-test_sdata_keys_are_sanitized(void)
+test_sdata_sanitization(void)
 {
   LogMessage *msg;
   /* These keys looks strange, but JSON object can be parsed to SDATA,
    * so the key could contain any character, while the specification
-   * does not declare any way to encode the the keys, just the values.
-   * The goal is to have a syntactically valid syslog message. */
+   * does not declare any way to encode the keys, just the values.
+   * The goal is to have a syntactically valid syslog message.
+   *
+   * Block names are sanitized with the same function as the keys,
+   * thus no need for exhaust testing, added just one case to the end
+   * to see if business logic applied. */
 
   msg = log_msg_new_empty();
   log_msg_set_value_by_name(msg, ".SDATA.foo.bar[0]", "value[0]", -1);
@@ -118,6 +122,11 @@ test_sdata_keys_are_sanitized(void)
   log_msg_set_value_by_name(msg, ".SDATA.foo.quo\"te", "quo\"te", -1);
   assert_sdata_value_equals(msg, "[foo quo%22te=\"quo\\\"te\"]");
   log_msg_unref(msg);
+
+  msg = log_msg_new_empty();
+  log_msg_set_value_by_name(msg, ".SDATA.fo@o[0].bar", "value", -1);
+  assert_sdata_value_equals(msg, "[fo@o%5B0%5D bar=\"value\"]");
+  log_msg_unref(msg);
 }
 
 int
@@ -128,7 +137,7 @@ main(int argc G_GNUC_UNUSED, char *argv[] G_GNUC_UNUSED)
   init_and_load_syslogformat_module();
 
   test_misc_stuff();
-  test_sdata_keys_are_sanitized();
+  test_sdata_sanitization();
 
   app_shutdown();
   return 0;
