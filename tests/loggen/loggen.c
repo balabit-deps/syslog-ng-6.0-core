@@ -226,7 +226,7 @@ send_ssl(void *user_data, void *buf, size_t length)
   SSL *fd = (SSL *)user_data;
   int id = GPOINTER_TO_INT(g_thread_self()->data);
   gsize len = 0;
-  static gchar expected[100] = {0};
+  gchar expected[100] = {0};
   int res = SSL_write(fd, buf, length);
   if (rltp)
     {
