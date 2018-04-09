@@ -94,9 +94,6 @@ gchar *find_cr_or_lf(gchar *s, gsize n);
 gboolean create_containing_directory(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
 gchar *find_file_in_path(const gchar *path, const gchar *filename, GFileTest test);
 
-gint set_permissions(gchar *name, gint uid, gint gid, gint mode);
-gint set_permissions_fd(gint fd, gint uid, gint gid, gint mode);
-
 gint grant_file_permissions(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
 gint grant_file_permissions_fd(gint fd, gint dir_uid, gint dir_gid, gint dir_mode);
 

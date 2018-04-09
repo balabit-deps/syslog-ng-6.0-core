@@ -455,6 +455,29 @@ utf8_to_wide(const gchar *str)
 
 #endif /* _WIN32 */
 
+gint
+set_permissions(gchar *name, gint uid, gint gid, gint mode)
+{
+  if (uid >= 0)
+    if (chown(name, (uid_t) uid, -1)) return -1;
+  if (gid >= 0)
+    if (chown(name, -1, (gid_t) gid)) return -1;
+  if (mode >= 0)
+    if (chmod(name, (mode_t) mode)) return -1;
+  return 0;
+}
+
+gint
+set_permissions_fd(gint fd, gint uid, gint gid, gint mode)
+{
+  if (uid >= 0)
+    if (fchown(fd, (uid_t) uid, -1)) return -1;
+  if (gid >= 0)
+    if (fchown(fd, -1, (gid_t) gid)) return -1;
+  if (mode >= 0)
+    if (fchmod(fd, (mode_t) mode)) return -1;
+  return 0;
+}
 
 gint
 grant_file_permissions(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
@@ -816,30 +839,6 @@ utf8_escape_string(const gchar *str, gssize len)
   *(res_pos++) = '\0';
 
   return res;
-}
-
-gint
-set_permissions(gchar *name, gint uid, gint gid, gint mode)
-{
-  if (uid >= 0)
-    if (chown(name, (uid_t) uid, -1)) return -1;
-  if (gid >= 0)
-    if (chown(name, -1, (gid_t) gid)) return -1;
-  if (mode >= 0)
-    if (chmod(name, (mode_t) mode)) return -1;
-  return 0;
-}
-
-gint
-set_permissions_fd(gint fd, gint uid, gint gid, gint mode)
-{
-  if (uid >= 0)
-    if (fchown(fd, (uid_t) uid, -1)) return -1;
-  if (gid >= 0)
-    if (fchown(fd, -1, (gid_t) gid)) return -1;
-  if (mode >= 0)
-    if (fchmod(fd, (mode_t) mode)) return -1;
-  return 0;
 }
 
 gchar *
