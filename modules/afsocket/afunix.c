@@ -231,14 +231,7 @@ afunix_sd_init(LogPipe *s)
 
   if (afsocket_sd_init(s))
     {
-      cap_t saved_caps;
-
-      saved_caps = g_process_cap_save();
-      g_process_cap_raise(CAP_CHOWN);
-      g_process_cap_raise(CAP_FOWNER);
-      g_process_cap_raise(CAP_DAC_OVERRIDE);
-      set_permissions(self->filename, self->owner, self->group, self->perm);
-      g_process_cap_restore(saved_caps);
+      grant_file_permissions(self->filename, self->owner, self->group, self->perm);
 
       return TRUE;
     }
