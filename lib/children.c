@@ -37,6 +37,7 @@ typedef struct _ChildEntry
 } ChildEntry;
 
 GHashTable *child_hash;
+static void (*sigchld_callback)(int);
 
 /* This variable will be used concurrently from the main loop and signal handlers. */
 GAtomicCounter child_count;
@@ -74,6 +75,12 @@ child_manager_unregister(pid_t pid)
 }
 
 void
+child_manager_register_external_sigchld_handler(void (*callback)(int))
+{
+  sigchld_callback = callback;
+}
+
+void
 child_manager_sigchild(pid_t pid, int status)
 {
   ChildEntry *ce;
@@ -85,6 +92,9 @@ child_manager_sigchild(pid_t pid, int status)
       g_hash_table_remove(child_hash, &pid);
       (void)g_atomic_counter_dec_and_test(&child_count);
     }
+
+  if (sigchld_callback)
+    sigchld_callback(SIGCHLD);
 }
 
 static void
