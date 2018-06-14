@@ -116,7 +116,11 @@ load_journald_subsystem()
         {
           goto error;
         }
-      if (!LOAD_SYMBOL(journald_module, sd_journal_next))
+      if (!LOAD_SYMBOL(journald_module, sd_journal_test_cursor))
+        {
+          goto error;
+        }
+     if (!LOAD_SYMBOL(journald_module, sd_journal_next))
         {
           goto error;
         }
