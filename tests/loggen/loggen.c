@@ -930,6 +930,11 @@ active_thread(gpointer st)
               fprintf(stderr,"EXIT BAD SERVER REPLY: %s\n",cbuf);
             }
         }
+      else if (!require_tls && usessl)
+        {
+          fprintf(stderr, "RLTP SSL required by command line parameter but server doesn't support it\n");
+          exit(1);
+        }
       else if (allow_compress && use_zlib)
         {
           write_bytes(ctx, "ZLIB\n", 5);
@@ -941,6 +946,11 @@ active_thread(gpointer st)
             }
           ctx->usezlib = TRUE;
           goto use_plain_transport;
+        }
+      else if (allow_compress && !use_zlib)
+        {
+          fprintf(stderr, "RLTP compression required by command line parameter but server doesn't support it\n");
+          exit(1);
         }
       else
         {
@@ -988,7 +998,7 @@ use_plain_transport:
     {
       count = (usessl ? gen_messages_ssl : gen_messages_plain)(ctx, id, readfrom);
     }
-  else if (usessl)
+  else if (require_tls && usessl)
     {
       count = gen_messages(send_ssl, ssl_transport, id, readfrom);
     }
