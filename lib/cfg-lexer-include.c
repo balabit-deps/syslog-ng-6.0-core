@@ -144,11 +144,6 @@ _glob_pattern_p(const char *pattern)
       case '*':
         return 1;
 
-      case '\\':
-        if (p[1] != '\0')
-          ++p;
-        break;
-
       case '[':
         open = 1;
         break;
