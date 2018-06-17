@@ -204,47 +204,47 @@ transport
   ;
 
 source_afunix_dgram_params
-        : KW_IFDEF {
-#ifndef G_OS_WIN32
-}
-	| string
+	: string
 	  {
+#ifdef G_OS_WIN32
+	    CHECK_ERROR(FALSE, @$, "unix-dgram() is not available on Windows");
+#else
 	    last_driver = *instance = afunix_sd_new($1, AFSOCKET_LOCAL | AFSOCKET_DGRAM);
 	    free($1);
             afsocket_sd_set_transport(last_driver,"dgram");
 	    last_reader_options = &((AFSocketSourceDriver *) last_driver)->reader_options;
 	    last_sock_options = ((AFUnixSourceDriver *) last_driver)->super.sock_options_ptr;
+#endif
 	  }
 	  source_afunix_options
     {
+#ifndef G_OS_WIN32
       fallback_journald_if_required(last_driver);
       $$ = *instance = last_driver;
-    }
-        | KW_ENDIF {
 #endif
-}
+    }
 	;
 
 source_afunix_stream_params
-        : KW_IFDEF {
-#ifndef G_OS_WIN32
-}
-	| string
+	: string
 	  {
+#ifdef G_OS_WIN32
+	    CHECK_ERROR(FALSE, @$, "unix-stream() is not available on Windows");
+#else
 	    last_driver = *instance = afunix_sd_new($1, AFSOCKET_KEEP_ALIVE | AFSOCKET_LOCAL | AFSOCKET_STREAM);
 	    free($1);
       afsocket_sd_set_transport(last_driver,"stream-newline");
 	    last_reader_options = &((AFSocketSourceDriver *) last_driver)->reader_options;
 	    last_sock_options = ((AFUnixSourceDriver *) last_driver)->super.sock_options_ptr;
+#endif
 	  }
 	  source_afunix_options
     {
+#ifndef G_OS_WIN32
       fallback_journald_if_required(last_driver);
       $$ = *instance = last_driver;
-    }
-        | KW_ENDIF {
 #endif
-}
+    }
 	;
 
 /* options are common between dgram & stream */
@@ -450,39 +450,35 @@ dest_afsocket
 	;
 
 dest_afunix_dgram_params
-        : KW_IFDEF {
-#ifndef G_OS_WIN32
-}
-	| string
+	: string
 	  {
+#ifdef G_OS_WIN32
+	    CHECK_ERROR(FALSE, @$, "unix-dgram() is not available on Windows");
+#else
 	    last_driver = *instance = afunix_dd_new($1,AFSOCKET_DGRAM);
 	    free($1);
       afsocket_dd_set_transport(last_driver,"dgram");
 	    last_writer_options = &((AFSocketDestDriver *) last_driver)->writer_options;
 	    last_sock_options = ((AFUnixDestDriver *) last_driver)->super.sock_options_ptr;
+#endif
 	  }
 	  dest_afunix_options			{ $$ = last_driver; }
-        | KW_ENDIF {
-#endif
-}
 	;
 
 dest_afunix_stream_params
-        : KW_IFDEF {
-#ifndef G_OS_WIN32
-}
-	| string
+	: string
 	  {
+#ifdef G_OS_WIN32
+	    CHECK_ERROR(FALSE, @$, "unix-stream() is not available on Windows");
+#else
 	    last_driver = *instance = afunix_dd_new($1,AFSOCKET_STREAM);
 	    free($1);
       afsocket_dd_set_transport(last_driver,"stream-newline");
 	    last_writer_options = &((AFSocketDestDriver *) last_driver)->writer_options;
 	    last_sock_options = ((AFUnixDestDriver *) last_driver)->super.sock_options_ptr;
+#endif
 	  }
 	  dest_afunix_options			{ $$ = last_driver; }
-        | KW_ENDIF {
-#endif
-}
 	;
 
 dest_afunix_options
