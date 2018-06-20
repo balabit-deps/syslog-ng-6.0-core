@@ -6,9 +6,9 @@ SELINUX SUPPORT FOR SYSLOG-NG
 
   SELinux support was added in syslog-ng 5.2 on the following platforms:
 
-    Red Hat Enterprise Linux/CentOS 5
-    Red Hat Enterprise Linux/CentOS 6
-    Red Hat Enterprise Linux/CentOS 7
+    Red Hat Enterprise Linux/CentOS/Oracle Linux 5
+    Red Hat Enterprise Linux/CentOS/Oracle Linux 6
+    Red Hat Enterprise Linux/CentOS/Oracle Linux 7
 
   The installation steps may differ on these operating systems, so you will find
   RHEL version specific information, too. Root permission is needed to run most
@@ -19,7 +19,7 @@ SELINUX SUPPORT FOR SYSLOG-NG
 
     policycoreutils
     policycoreutils-python
-    policycoreutils-devel (only available on RHEL/CentOS 7)
+    policycoreutils-devel (only available on RHEL/CentOS/Oracle Linux 7)
 
   If they are not installed on your system, you can install them by the
   following command:
@@ -56,7 +56,7 @@ RESTARTING SYSLOG-NG
 
     service syslog-ng restart
 
-  On RHEL7 you have to run:
+  On RHEL/CentOS/Oracle Linux 7 you have to run:
 
     systemctl restart syslog-ng
 
