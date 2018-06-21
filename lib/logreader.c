@@ -493,6 +493,8 @@ log_reader_restart_task_handler(gpointer s)
         }
       log_reader_io_process_input(s);
     }
+  else if(self->options->follow_freq > 0)
+    log_reader_restart_follow_timer(self);
 }
 
 static void
