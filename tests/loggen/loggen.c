@@ -309,7 +309,7 @@ write_chunk(send_data_t send_func, void *send_func_ud, void *buf, size_t buf_len
 }
 
 static int
-parse_line(const char *line, char *host, char *program, char *pid, char **msg)
+parse_line(const char *line, GString *host, GString *program, GString *pid, char *msg)
 {
   const char *pos0;
   const char *pos = line;
@@ -321,7 +321,6 @@ parse_line(const char *line, char *host, char *program, char *pid, char **msg)
   while (space)
     {
       pos = strchr(pos, ' ');
-
       if (!pos)
         return -1;
       pos++;
@@ -342,32 +341,30 @@ parse_line(const char *line, char *host, char *program, char *pid, char **msg)
         ;
 
       pid_len = end - pos; /* 'end' points to the last character of the pid string (not off by one), *pos = '[' -> pid length = end - pos*/
-      memcpy(pid, pos + 1, pid_len);
-      pid[pid_len] = '\0';
+      pid = g_string_append_len(pid, (const gchar*)pos+1, pid_len);
     }
   else
     {
-      pid[0] = '\0';
+      pid->str[0] = '\0';
       ++pos; /* the 'pos' has been decreased in the condition (']'), reset it to the original position */
     }
 
   /* Program */
   end = pos;
-  while (*(--pos) != ' ');
+  while (*(--pos) != ' ')
+    ;
 
-  memcpy(program, pos + 1, end - pos - 1);
-  program[end-pos-1] = '\0';
+  program = g_string_append_len(program, (const gchar*)pos+1, end - pos - 1);
 
   /* Host */
   end = pos;
   while (*(--pos) != ' ')
     ;
 
-  memcpy(host, pos + 1, end - pos - 1);
-  host[end-pos-1] = '\0';
+  host = g_string_append_len(host, (const gchar*)pos+1, end - pos - 1);
 
-  *msg = ((char*)pos0) + 2;
-
+  /* create a copy from the rest of the message */
+  snprintf(msg, MAX_MESSAGE_LENGTH, "%s", (char *)(pos0 + 2));
   return 1;
 }
 
@@ -383,12 +380,11 @@ _get_now_timestamp(char *stamp, gsize stamp_size)
 }
 
 static int
-gen_next_message(FILE *source, char *buf, int buflen)
+gen_next_message(FILE *source, char *buf, int buflen, GString *host, GString *program, GString *pid)
 {
   static int lineno = 0;
   int linelen;
-  char host[128], program[128], pid[16];
-  char *msg = NULL;
+  char msg[MAX_MESSAGE_LENGTH+1];
 
   while (1)
     {
@@ -417,7 +413,7 @@ gen_next_message(FILE *source, char *buf, int buflen)
       if (dont_parse)
         break;
 
-      if (parse_line(buf, host, program, pid, &msg) > 0)
+      if (parse_line(buf, host, program, pid, msg) > 0)
         break;
 
       fprintf(stderr, "\rInvalid line %d                  \n", ++lineno);
@@ -435,17 +431,17 @@ gen_next_message(FILE *source, char *buf, int buflen)
   if (syslog_proto)
     {
       char tmp[11];
-      linelen = snprintf(buf + 10, buflen - 10, "<38>1 %.*s %s %s %s - - \xEF\xBB\xBF%s", tslen, stamp, host, program, (pid[0] ? pid : "-"), msg);
+      linelen = snprintf(buf + 10, buflen - 10, "<38>1 %.*s %s %s %s - - \xEF\xBB\xBF%s", tslen, stamp, host->str, program->str, (pid->str[0] ? pid->str : "-"), msg);
       snprintf(tmp, sizeof(tmp), "%09d ", linelen);
       memcpy(buf, tmp, 10);
       linelen += 10;
     }
   else
     {
-      if (*pid)
-        linelen = snprintf(buf, buflen, "<38>%.*s %s %s[%s]: %s", tslen, stamp, host, program, pid, msg);
+      if (*pid->str)
+        linelen = snprintf(buf, buflen, "<38>%.*s %s %s[%s]: %s", tslen, stamp, host->str, program->str, pid->str, msg);
       else
-        linelen = snprintf(buf, buflen, "<38>%.*s %s %s: %s", tslen, stamp, host, program, msg);
+        linelen = snprintf(buf, buflen, "<38>%.*s %s %s: %s", tslen, stamp, host->str, program->str, msg);
     }
 
   return linelen;
@@ -560,6 +556,10 @@ gen_messages(send_data_t send_func, void *send_func_ud, int thread_id, FILE *rea
   linebuf[hdr_len + message_length - 1] = '\n';
   linebuf[hdr_len + message_length] = 0;
 
+  GString *host = g_string_sized_new(128);
+  GString *program = g_string_sized_new(128);
+  GString *pid = g_string_sized_new(16);
+
   /* NOTE: all threads calculate raw_message_length. This code could use some refactorization. */
   raw_message_length = linelen = strlen(linebuf);
   while (time_val_diff_in_usec(&now, &start) < ((int64_t)interval) * USEC_PER_SEC)
@@ -600,7 +600,11 @@ gen_messages(send_data_t send_func, void *send_func_ud, int thread_id, FILE *rea
 
       if (readfrom)
         {
-          rc = gen_next_message(readfrom, linebuf, sizeof(linebuf));
+          host = g_string_erase(host, 0, -1);
+          program = g_string_erase(program, 0, -1);
+          pid = g_string_erase(pid, 0, -1);
+
+          rc = gen_next_message(readfrom, linebuf, sizeof(linebuf), host, program, pid);
           if (rc == -1)
             break;
 
@@ -658,6 +662,10 @@ gen_messages(send_data_t send_func, void *send_func_ud, int thread_id, FILE *rea
       count++;
     }
 
+  g_string_free(host,TRUE);
+  g_string_free(program,TRUE);
+  g_string_free(pid,TRUE);
+  
   gettimeofday(&now, NULL);
   diff_usec = time_val_diff_in_usec(&now, &start);
   time_val_diff_in_timeval(&diff_tv, &now, &start);
