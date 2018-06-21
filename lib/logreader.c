@@ -390,7 +390,6 @@ log_reader_io_follow_file(gpointer s)
                         evt_tag_str("follow_filename", self->follow_filename),
                         NULL);
               /* file was moved and we are at EOF, follow the new file */
-              log_reader_flush_buffer(self, TRUE);
               log_pipe_notify(self->control, &self->super.super, NC_FILE_MOVED, self);
               /* we may be freed by the time the notification above returns */
               return;
