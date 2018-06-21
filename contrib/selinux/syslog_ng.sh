@@ -1,12 +1,26 @@
 #!/bin/bash
 
+### Exit error codes
+#
+# 0: everything went fine
+# 255: invalid command line-option
+# 254: no root privileges
+# 253: file or directory does not exist
+# 252: policy build failed
+# 251: policy install failed
+# 250: unsupported os/distribution/version
+# 249: conflicting parameters
+# 248: internal error at task selection
+
 EL_FC=
 EL_TE=
 OS_VERSION=
 INSTALL_PATH="/opt/syslog-ng"
-# Ports 514/udp, 6514/udp and 6514/tcp are allowed by default
+# ports 514/udp, 6514/udp and 6514/tcp are allowed by default
+# if you wish to add further ports, just add them to the end of the list
 SYSLOG_NG_TCP_PORTS="601"
 SYSLOG_NG_UDP_PORTS="601"
+TASK_SELECTED="install_default"
 INPUT=
 
 query_install_path() {
@@ -14,13 +28,21 @@ query_install_path() {
 	read INPUT
 }
 
+check_dir() {
+	if [ -d "${1}" ]; then
+		return 0
+	else
+		echo "The directory you specified does not exist!" >&2
+		return 1
+	fi
+}
 
 verify_input() {
 	INPUT="${INPUT:-${INSTALL_PATH}}"
 	echo -n "You have entered '${INPUT}'. Is this correct? [y/N] "
 	read ACCEPT
 	if [ "x${ACCEPT}x" != "xyx" ]; then return 0; fi
-	if [ ! -d "${INPUT}" ]; then echo "The directory you entered does not exist!" ; return 0 ; else return 1; fi
+	check_dir "${INPUT}" && return 1 || return 0
 }
 
 
@@ -30,20 +52,21 @@ extract_version_string() {
 
 
 detect_os_version() {
-	echo "Detecting RHEL version..."
+	echo "Detecting RHEL/CentOS/Oracle Linux version..."
 	if [ -x "/usr/bin/lsb_release" ]; then
-		if lsb_release -i | grep -qvE "RedHat|CentOS"; then
+		if lsb_release -d | grep -qE "Description:[[:space:]]+(CentOS|CentOS Linux|Red Hat Enterprise Linux Server|Oracle Linux Server|Enterprise Linux Enterprise Linux Server) release"; then
+			OS_VERSION=$( lsb_release -r | cut -f 2 )
+		else
 			echo "You don't seem to be running a supported Linux distribution!" >&2
-			exit 1
+			exit 250
 		fi
-		OS_VERSION=$( lsb_release -r | cut -f 2 )
 	else
 		# The package redhat-lsb-core is most likely not installed...
 		if [ -f "/etc/redhat-release" ]; then
 			OS_VERSION=$( extract_version_string < "/etc/redhat-release" )
 		else
 			echo "You don't seem to be running a supported OS!" >&2
-			exit 1
+			exit 250
 		fi
 	fi
 }
@@ -66,7 +89,7 @@ omit_allowed_ports() {
 
 
 setup_vars() {
-	echo "Detected RHEL ${OS_VERSION}."
+	echo "Detected RHEL/CentOS/Oracle Linux ${OS_VERSION}."
 	case "${OS_VERSION}" in
 		5.*)
 			
@@ -96,7 +119,7 @@ setup_vars() {
 			;;
 		*)
 			echo "You don't seem to be running a supported version of RHEL!" >&2
-			exit 1
+			exit 250
 			;;
 	esac
 }
@@ -125,28 +148,54 @@ prepare_files() {
 }
 
 
+remove_trainling_slash() {
+	# the trailing slash in the install path (if present) breaks file context rules
+	# thus it needs to be removed (provided that the install path is not "/" itself)
+	sed -e 's:^\(.\+\)/$:\1:'
+}
+
+
 build_module() {
 	echo "Building and Loading Policy"
-	make -f /usr/share/selinux/devel/Makefile syslog_ng.pp || exit 1
+	make -f /usr/share/selinux/devel/Makefile syslog_ng.pp || exit 252
+}
+
+
+add_ports() {
+	for entry in ${@}; do
+		port=${entry%/*}
+		proto=${entry#*/}
+		semanage port -a -t syslogd_port_t -p ${proto} ${port} 2>/dev/null || \
+		semanage port -m -t syslogd_port_t -p ${proto} ${port} 2>/dev/null
+	done
 }
 
 
 install_module() {
-	/usr/sbin/semodule -i syslog_ng.pp -v || exit 1
+	/usr/sbin/semodule -i syslog_ng.pp -v || exit 251
 
 	# set up syslog-ng specific ports
-	for port in ${SYSLOG_NG_TCP_PORTS}; do semanage port -a -t syslogd_port_t -p tcp ${port}; done
-	for port in ${SYSLOG_NG_UDP_PORTS}; do semanage port -a -t syslogd_port_t -p udp ${port}; done
+	PORTS=
+	for port in ${SYSLOG_NG_TCP_PORTS}; do PORTS="${PORTS} ${port}/tcp"; done
+	for port in ${SYSLOG_NG_UDP_PORTS}; do PORTS="${PORTS} ${port}/udp"; done
+	add_ports "${PORTS}"
 	
 	# Fixing the file context
 	/sbin/restorecon -F -Rv "${INSTALL_PATH}"
-	/sbin/restorecon -F -Rv /etc/init.d/syslog-ng
-	/sbin/restorecon -F -Rv /etc/rc.d/init.d/syslog-ng
+	[ -f /etc/init.d/syslog-ng ] && /sbin/restorecon -F -v /etc/init.d/syslog-ng
+	[ -f /etc/rc.d/init.d/syslog-ng ] && /sbin/restorecon -F -v /etc/rc.d/init.d/syslog-ng
 	/sbin/restorecon -F -Rv /dev/log
 	
 	echo -e "\nPlease restart syslog-ng. You can find more information about this in the README file."
 }
 
+remove_ports() {
+	for entry in ${@}; do
+		port=${entry%/*}
+		proto=${entry#*/}
+		semanage port -d -t syslogd_port_t -p ${proto} ${port} 2>/dev/null
+	done
+}
 
 remove_module() {
 	if semodule -l | grep -q syslog_ng; then
@@ -155,8 +204,10 @@ remove_module() {
 		semodule --remove=syslog_ng
 		
 		# unconfigure syslog-ng specific ports
-		for port in ${SYSLOG_NG_TCP_PORTS}; do semanage port -d -t syslogd_port_t -p tcp ${port}; done
-		for port in ${SYSLOG_NG_UDP_PORTS}; do semanage port -d -t syslogd_port_t -p udp ${port}; done
+		PORTS=
+		for port in ${SYSLOG_NG_TCP_PORTS}; do PORTS="${PORTS} ${port}/tcp"; done
+		for port in ${SYSLOG_NG_UDP_PORTS}; do PORTS="${PORTS} ${port}/udp"; done
+		remove_ports "${PORTS}"
 		
 		[ -f syslog_ng.pp ] && rm -f syslog_ng.pp
 		[ -f syslog_ng.te ] && rm -f syslog_ng.te
@@ -170,41 +221,72 @@ remove_module() {
 	fi
 }
 
+DIRNAME=$( dirname "${0}" )
+cd "${DIRNAME}"
+USAGE="Usage: $0\t[ --install-dir <DIRECTORY> | --remove | --help ]\n\n$0:\tA tool for building and managing the SELinux policy for the\n\t\tdefault syslog-ng installation."
 
-DIRNAME=$( dirname ${0} )
-cd ${DIRNAME}
-USAGE="$0\t[ --remove | --help ]\n\n$0:\tA tool for building and managing the SELinux policy for the\n\t\tdefault syslog-ng installation."
 
-if [ ${#} -ge 1 ]; then
-	case "$1" in
-		--remove)
-			detect_os_version
-			setup_vars
-			remove_module
-			exit 0
+while [ -n "${1}" ]; do
+	case "${1}" in
+		--help)
+			# if --help is supplied, the help message will be printed independently of any other options being specified
+			TASK_SELECTED="showhelp"
+			break
 			;;
-#		--help)
+		--install-dir)
+			[ "${TASK_SELECTED}" = "remove" ] && echo -e "ERROR: Conflicting options!\n\n${USAGE}" >&2 && exit 249
+			TASK_SELECTED="install"
+			check_dir "${2}" || exit 253
+			INPUT="${2}"
+			shift 2
+			;;
+		--remove)
+			[ "${TASK_SELECTED}" = "install" ] && echo -e "ERROR: Conflicting options!\n\n${USAGE}" >&2 && exit 249
+			TASK_SELECTED="remove"
+			shift
+			;;
 		*)
-			echo -e ${USAGE}
-			exit 1
+			echo -e "ERROR: Invalid option: '${1}'\n${USAGE}" >&2
+			exit 255
 			;;
 	esac
-fi
 
-if [ $( id -u ) != 0 ]; then
-	echo 'You must be root to run this script'
-	exit 1
-fi
-
-query_install_path
-while verify_input; do
-	query_install_path
 done
-INSTALL_PATH="${INPUT}"
 
-detect_os_version
-setup_vars
-prepare_files
-build_module
-install_module
-
+case "${TASK_SELECTED}" in
+	showhelp)
+		echo -e "${USAGE}"
+		exit 0
+		;;
+	remove)
+		detect_os_version
+		setup_vars
+		remove_module
+		exit 0
+		;;
+	install|install_default)
+		if [ $( id -u ) != 0 ]; then
+			echo 'You must be root to run this script!' >&2
+			exit 254
+		fi
+		
+		if [ -z "${INPUT}" ]; then 
+			query_install_path
+			while verify_input; do
+				query_install_path
+			done
+		fi
+		
+		INSTALL_PATH=$( remove_trainling_slash <<<"${INPUT}" )
+		
+		detect_os_version
+		setup_vars
+		prepare_files
+		build_module
+		install_module
+		;;
+	*)
+		echo -e "ERROR: Invalid task: '${TASK_SELECTED}'!" >&2
+		exit 248
+		;;
+esac
