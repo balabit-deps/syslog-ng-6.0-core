@@ -30,6 +30,7 @@ EXTRA_DIST = README init.d.solaris init.d.HP-UX init.d.RedHat init.d.SuSE 	\
 	selinux/src/root_unsafe/syslog_ng.el5.fc.in \
 	selinux/src/root_unsafe/syslog_ng.el6.fc.in \
 	selinux/src/root_unsafe/syslog_ng.el7.fc.in \
+	selinux/src/syslog_ng.module.version \
 	selinux/src/syslog_ng.el5.te.in \
 	selinux/src/syslog_ng.el6.0to4.te.in \
 	selinux/src/syslog_ng.el67.te.in \
