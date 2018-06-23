@@ -64,7 +64,7 @@ int affile_open_fd(const gchar *name, OpenFileProperties *props)
 }
 
 static int
-affile_open_file(gchar *name, OpenFileProperties *props)
+affile_open_file(const gchar *name, OpenFileProperties *props)
 {
   int fd = -1;
 
@@ -103,7 +103,7 @@ affile_dd_init_reopen_file_properties(AFFileDestDriver *self, OpenFileProperties
 }
 
 gboolean
-affile_sd_open_file(AFFileSourceDriver *self, gchar *name, gint *fd)
+affile_sd_open_file(AFFileSourceDriver *self, const gchar *name, gint *fd)
 {
   OpenFileProperties props;
   affile_sd_init_open_file_properties(self, &props);
@@ -114,7 +114,7 @@ affile_sd_open_file(AFFileSourceDriver *self, gchar *name, gint *fd)
 }
 
 gboolean
-affile_dw_reopen_file(AFFileDestDriver *self, gchar *name, gint *fd)
+affile_dw_reopen_file(AFFileDestDriver *self, const gchar *name, gint *fd)
 {
   OpenFileProperties props;
   affile_dd_init_reopen_file_properties(self, &props);

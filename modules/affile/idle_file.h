@@ -35,7 +35,7 @@ struct _IdleFile {
 };
 
 
-IdleFile* idle_file_new(gchar *filename, time_t timestamp);
+IdleFile* idle_file_new(const gchar *filename, time_t timestamp);
 void idle_file_free(IdleFile *self);
 void idle_file_set_expires(IdleFile *self, time_t timestamp);
 gboolean idle_file_equal_path(IdleFile *a, IdleFile *b);
