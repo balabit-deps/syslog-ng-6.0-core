@@ -1371,8 +1371,6 @@ log_reader_options_init(LogReaderOptions *options, GlobalConfig *cfg, const gcha
 
   if (options->msg_size == -1)
     options->msg_size = cfg->log_msg_size;
-  if (options->follow_freq == -1)
-    options->follow_freq = cfg->follow_freq;
   if (options->check_hostname == -1)
     options->check_hostname = cfg->check_hostname;
   if (options->check_hostname)
