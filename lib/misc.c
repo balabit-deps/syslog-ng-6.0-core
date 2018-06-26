@@ -458,25 +458,31 @@ utf8_to_wide(const gchar *str)
 gboolean
 set_permissions(const gchar *name, gint uid, gint gid, gint mode)
 {
+  gboolean succeed = TRUE;
+
   if (uid >= 0)
-    if (chown(name, (uid_t) uid, -1) < 0) return FALSE;
+    if (chown(name, (uid_t) uid, -1) < 0) succeed = FALSE;
   if (gid >= 0)
-    if (chown(name, -1, (gid_t) gid) < 0) return FALSE;
+    if (chown(name, -1, (gid_t) gid) < 0) succeed = FALSE;
   if (mode >= 0)
-    if (chmod(name, (mode_t) mode) < 0) return FALSE;
-  return TRUE;
+    if (chmod(name, (mode_t) mode) < 0) succeed = FALSE;
+
+  return succeed;
 }
 
 gboolean
 set_permissions_fd(gint fd, gint uid, gint gid, gint mode)
 {
+  gboolean succeed = TRUE;
+
   if (uid >= 0)
-    if (fchown(fd, (uid_t) uid, -1) < 0) return FALSE;
+    if (fchown(fd, (uid_t) uid, -1) < 0) succeed = FALSE;
   if (gid >= 0)
-    if (fchown(fd, -1, (gid_t) gid) < 0) return FALSE;
+    if (fchown(fd, -1, (gid_t) gid) < 0) succeed = FALSE;
   if (mode >= 0)
-    if (fchmod(fd, (mode_t) mode) < 0) return FALSE;
-  return TRUE;
+    if (fchmod(fd, (mode_t) mode) < 0) succeed = FALSE;
+
+  return succeed;
 }
 
 gboolean
