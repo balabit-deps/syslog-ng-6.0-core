@@ -455,48 +455,48 @@ utf8_to_wide(const gchar *str)
 
 #endif /* _WIN32 */
 
-gint
+gboolean
 set_permissions(const gchar *name, gint uid, gint gid, gint mode)
 {
   if (uid >= 0)
-    if (chown(name, (uid_t) uid, -1)) return -1;
+    if (chown(name, (uid_t) uid, -1) < 0) return FALSE;
   if (gid >= 0)
-    if (chown(name, -1, (gid_t) gid)) return -1;
+    if (chown(name, -1, (gid_t) gid) < 0) return FALSE;
   if (mode >= 0)
-    if (chmod(name, (mode_t) mode)) return -1;
-  return 0;
+    if (chmod(name, (mode_t) mode) < 0) return FALSE;
+  return TRUE;
 }
 
-gint
+gboolean
 set_permissions_fd(gint fd, gint uid, gint gid, gint mode)
 {
   if (uid >= 0)
-    if (fchown(fd, (uid_t) uid, -1)) return -1;
+    if (fchown(fd, (uid_t) uid, -1) < 0) return FALSE;
   if (gid >= 0)
-    if (fchown(fd, -1, (gid_t) gid)) return -1;
+    if (fchown(fd, -1, (gid_t) gid) < 0) return FALSE;
   if (mode >= 0)
-    if (fchmod(fd, (mode_t) mode)) return -1;
-  return 0;
+    if (fchmod(fd, (mode_t) mode) < 0) return FALSE;
+  return TRUE;
 }
 
-gint
+gboolean
 grant_file_permissions(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
 {
   cap_t saved_caps = g_process_cap_save();
   raise_file_permissions();
-  gint result = set_permissions(name, dir_uid, dir_gid, dir_mode);
+  gboolean result = set_permissions(name, dir_uid, dir_gid, dir_mode);
   int old_errno = errno;
   g_process_cap_restore(saved_caps);
   errno = old_errno;
   return result;
 }
 
-gint
+gboolean
 grant_file_permissions_fd(gint fd, gint dir_uid, gint dir_gid, gint dir_mode)
 {
   cap_t saved_caps = g_process_cap_save();
   raise_file_permissions();
-  gint result = set_permissions_fd(fd, dir_uid, dir_gid, dir_mode);
+  gboolean result = set_permissions_fd(fd, dir_uid, dir_gid, dir_mode);
   int old_errno = errno;
   g_process_cap_restore(saved_caps);
   errno = old_errno;
