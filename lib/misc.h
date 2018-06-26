@@ -95,8 +95,8 @@ gboolean create_containing_directory(const gchar *name, gint dir_uid, gint dir_g
 gboolean create_containing_directory_with_capabilities(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
 gchar *find_file_in_path(const gchar *path, const gchar *filename, GFileTest test);
 
-gint grant_file_permissions(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
-gint grant_file_permissions_fd(gint fd, gint dir_uid, gint dir_gid, gint dir_mode);
+gboolean grant_file_permissions(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
+gboolean grant_file_permissions_fd(gint fd, gint dir_uid, gint dir_gid, gint dir_mode);
 
 gint privileged_stat(const gchar *fname, struct stat *result);
 
