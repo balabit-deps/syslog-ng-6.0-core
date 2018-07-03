@@ -43,9 +43,9 @@ struct _AFFileDestWriter
 
 void affile_file_monitor_stop(AFFileSourceDriver *self);
 void affile_file_monitor_init(AFFileSourceDriver *self, const gchar *filename);
-gboolean affile_sd_open_file(AFFileSourceDriver *self, gchar *name, gint *fd);
+gboolean affile_sd_open_file(AFFileSourceDriver *self, const gchar *name, gint *fd);
 gboolean affile_sd_monitor_callback(const gchar *filename, gpointer s, FileActionType action_type);
-gboolean affile_dw_reopen_file(AFFileDestDriver *self, gchar *name, gint *fd);
+gboolean affile_dw_reopen_file(AFFileDestDriver *self, const gchar *name, gint *fd);
 gboolean affile_dw_reopen(AFFileDestWriter *self);
 
 gboolean is_wildcard_filename(const gchar *filename);

@@ -21,7 +21,7 @@
  * COPYING for details.
  *
  */
-  
+
 #ifndef MISC_H_INCLUDED
 #define MISC_H_INCLUDED
 
@@ -86,16 +86,16 @@ gboolean resolve_user_group(char *arg, gint *uid, gint *gid);
 
 /* name resolution */
 void resolve_sockaddr(gchar *result, gsize *result_len, GSockAddr *saddr, gboolean usedns, gboolean usefqdn, gboolean use_dns_cache, gboolean normalize_hostnames);
-gboolean resolve_hostname(GSockAddr **addr, gchar *name);
+gboolean resolve_hostname(GSockAddr **addr, const gchar *name);
 
 gchar *format_hex_string(gpointer str, gsize str_len, gchar *result, gsize result_len);
 gchar *find_cr_or_lf(gchar *s, gsize n);
 
-gboolean create_containing_directory(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
-gboolean create_containing_directory_with_capabilities(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
+gboolean create_containing_directory(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
+gboolean create_containing_directory_with_capabilities(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
 gchar *find_file_in_path(const gchar *path, const gchar *filename, GFileTest test);
 
-gint grant_file_permissions(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
+gint grant_file_permissions(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode);
 gint grant_file_permissions_fd(gint fd, gint dir_uid, gint dir_gid, gint dir_mode);
 
 gint privileged_stat(const gchar *fname, struct stat *result);
@@ -108,7 +108,7 @@ init_sequence_number(gint32 *seqnum)
   *seqnum = 1;
 }
 
-static inline void 
+static inline void
 step_sequence_number(gint32 *seqnum)
 {
   (*seqnum)++;

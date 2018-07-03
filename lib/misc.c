@@ -73,7 +73,7 @@ g_string_steal(GString *s)
 }
 
 gboolean
-resolve_hostname(GSockAddr **addr, gchar *name)
+resolve_hostname(GSockAddr **addr, const gchar *name)
 {
   char ip_addr[256];
 
@@ -456,7 +456,7 @@ utf8_to_wide(const gchar *str)
 #endif /* _WIN32 */
 
 gint
-set_permissions(gchar *name, gint uid, gint gid, gint mode)
+set_permissions(const gchar *name, gint uid, gint gid, gint mode)
 {
   if (uid >= 0)
     if (chown(name, (uid_t) uid, -1)) return -1;
@@ -480,7 +480,7 @@ set_permissions_fd(gint fd, gint uid, gint gid, gint mode)
 }
 
 gint
-grant_file_permissions(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
+grant_file_permissions(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
 {
   cap_t saved_caps = g_process_cap_save();
   raise_file_permissions();
@@ -511,34 +511,39 @@ grant_file_permissions_fd(gint fd, gint dir_uid, gint dir_gid, gint dir_mode)
  * returns. (at least it won't fail because of missing directories).
  **/
 gboolean
-create_containing_directory(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
+create_containing_directory(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
 {
+  gboolean result = FALSE;
+  gchar *_path;
   gchar *dirname;
   struct stat st;
   gint rc;
   gchar *p;
 
+  _path = g_strdup(name);
+
   /* check that the directory exists */
-  dirname = g_path_get_dirname(name);
+  dirname = g_path_get_dirname(_path);
   rc = stat(dirname, &st);
   g_free(dirname);
 
   if (rc == 0)
     {
       /* directory already exists */
-      return TRUE;
+      result = TRUE;
+      goto finish;
     }
   else if (rc < 0 && errno != ENOENT)
     {
       /* some real error occurred */
-      msg_warning("Failed to create containing directory", evt_tag_str("file", name), evt_tag_errno("errno", errno), NULL);
-      return FALSE;
+      msg_warning("Failed to create containing directory", evt_tag_str("file", _path), evt_tag_errno("errno", errno), NULL);
+      result = FALSE;
+      goto finish;
     }
 
   /* directory does not exist */
-  p = name + 1;
 
-  p = strchr(p, G_DIR_SEPARATOR);
+  p = strchr(_path + 1, G_DIR_SEPARATOR);
   while (p)
     {
       *p = '\0';
@@ -550,36 +555,42 @@ create_containing_directory(gchar *name, gint dir_uid, gint dir_gid, gint dir_mo
           continue;
         }
 #endif
-      if (stat(name, &st) == 0)
+      if (stat(_path, &st) == 0)
         {
           if (!S_ISDIR(st.st_mode))
             {
               msg_warning("Failed to create containing directory, the 'parent', is not a directory",
-                  evt_tag_str("parent", name), NULL);
-              return FALSE;
+                  evt_tag_str("parent", _path), NULL);
+              result = FALSE;
+              goto finish;
             }
         }
       else if (errno == ENOENT)
         {
-          if (g_mkdir(name, dir_mode < 0 ? 0700 : (mode_t) dir_mode) == -1)
+          if (g_mkdir(_path, dir_mode < 0 ? 0700 : (mode_t) dir_mode) == -1)
             {
-              msg_warning("Failed to create containing directory", evt_tag_str("dir", name), evt_tag_errno("errno", errno), NULL);
-              return FALSE;
+              msg_warning("Failed to create containing directory", evt_tag_str("dir", _path), evt_tag_errno("errno", errno), NULL);
+              result = FALSE;
+              goto finish;
             }
-          if (grant_file_permissions(name, dir_uid, dir_gid, dir_mode) < 0)
-            msg_warning("Failed to set file permissions", evt_tag_str("file", name), NULL);
+          if (grant_file_permissions(_path, dir_uid, dir_gid, dir_mode) < 0)
+            msg_warning("Failed to set file permissions", evt_tag_str("file", _path), NULL);
         }
       *p = G_DIR_SEPARATOR;
       p = strchr(p + 1, G_DIR_SEPARATOR);
     }
-  return TRUE;
+  result = TRUE;
+
+finish:
+  g_free(_path);
+  return result;
 }
 
 /*
  * Like create_containing_directory, but raises capabilities first.
  */
 gboolean
-create_containing_directory_with_capabilities(gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
+create_containing_directory_with_capabilities(const gchar *name, gint dir_uid, gint dir_gid, gint dir_mode)
 {
   gboolean res = FALSE;
 
@@ -1084,7 +1095,7 @@ pwrite_strict(gint fd, const void *buf, size_t count, off_t offset)
   return result;
 }
 
-gint 
+gint
 privileged_stat(const gchar *fname, struct stat *result)
 {
   gint res;
