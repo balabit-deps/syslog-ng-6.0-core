@@ -143,7 +143,7 @@ affile_check_file_type(const gchar *name, OpenFileProperties *props)
 }
 
 static int
-affile_open_file(gchar *name, OpenFileProperties *props)
+affile_open_file(const gchar *name, OpenFileProperties *props)
 {
   int fd = -1;
 
@@ -242,7 +242,7 @@ affile_is_regular_fd(int fd)
 }
 
 gboolean
-affile_sd_open_file(AFFileSourceDriver *self, gchar *name, gint *fd)
+affile_sd_open_file(AFFileSourceDriver *self, const gchar *name, gint *fd)
 {
   OpenFileProperties props;
 
@@ -257,7 +257,7 @@ affile_sd_open_file(AFFileSourceDriver *self, gchar *name, gint *fd)
 }
 
 gboolean
-affile_dw_reopen_file(AFFileDestDriver *self, gchar *name, gint *fd)
+affile_dw_reopen_file(AFFileDestDriver *self, const gchar *name, gint *fd)
 {
   OpenFileProperties props;
   affile_dd_init_reopen_file_properties(self, &props);

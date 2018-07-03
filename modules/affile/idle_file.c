@@ -25,7 +25,7 @@
 
 #include <string.h>
 
-IdleFile* idle_file_new(gchar *filename, time_t timestamp)
+IdleFile* idle_file_new(const gchar *filename, time_t timestamp)
 {
     IdleFile *self = g_new0(IdleFile, 1);
     self->path = g_strdup(filename);

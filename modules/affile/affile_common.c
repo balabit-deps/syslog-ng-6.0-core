@@ -409,7 +409,7 @@ compare_idle_file(gconstpointer a, gconstpointer b)
 }
 
 IdleFile*
-lookup_idle_file_by_name(GQueue *queue, gchar *filename)
+lookup_idle_file_by_name(GQueue *queue, const gchar *filename)
 {
     IdleFile *idle_file = NULL;
     GList      *item        = NULL;
