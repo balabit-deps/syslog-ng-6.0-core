@@ -41,6 +41,18 @@ struct _JavaVMSingleton
 
 static JavaVMSingleton *g_jvm_s;
 
+static JavaVMSingleton *
+_jvm_new(void)
+{
+  JavaVMSingleton *self = g_new0(JavaVMSingleton, 1);
+  g_atomic_counter_set(&self->ref_cnt, 1);
+
+  self->class_path = g_string_new(module_path);
+  g_string_append(self->class_path, "/java-modules/syslog-ng-core.jar");
+
+  return self;
+}
+
 JavaVMSingleton *
 java_machine_ref()
 {
@@ -50,11 +62,8 @@ java_machine_ref()
     }
   else
     {
-      g_jvm_s = g_new0(JavaVMSingleton, 1);
-      g_atomic_counter_set(&g_jvm_s->ref_cnt, 1);
+      g_jvm_s = _jvm_new();
 
-      g_jvm_s->class_path = g_string_new(module_path);
-      g_string_append(g_jvm_s->class_path, "/java-modules/syslog-ng-core.jar");
     }
   return g_jvm_s;
 }
