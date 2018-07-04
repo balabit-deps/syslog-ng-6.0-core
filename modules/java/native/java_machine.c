@@ -27,6 +27,7 @@
 #include "syslog-ng.h"
 #include "messages.h"
 #include "atomic.h"
+#include "apphook.h"
 
 struct _JavaVMSingleton
 {
@@ -40,6 +41,14 @@ struct _JavaVMSingleton
 };
 
 static JavaVMSingleton *g_jvm_s;
+
+void
+java_machine_unref_callback(gint app_type, gpointer user_data)
+{
+   JavaVMSingleton *jvm = (JavaVMSingleton*)user_data;
+
+   java_machine_unref(jvm);
+}
 
 static JavaVMSingleton *
 _jvm_new(void)
@@ -64,6 +73,12 @@ java_machine_ref()
     {
       g_jvm_s = _jvm_new();
 
+      /* The application hook is going to hold a reference to the global g_jvm_s,
+       * therefore the reference counter must be incremented before that.
+       * But we are in the _ref() function, so the counter must be updated as below.
+       */
+      g_atomic_counter_inc(&g_jvm_s->ref_cnt);
+      register_application_hook(AH_SHUTDOWN, java_machine_unref_callback, g_jvm_s);
     }
   return g_jvm_s;
 }
