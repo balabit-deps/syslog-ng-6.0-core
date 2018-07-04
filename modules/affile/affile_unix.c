@@ -84,11 +84,11 @@ _raise_syslog_read_caps(OpenFileProperties *props)
     }
 }
 
-static inline gint
+static inline gboolean
 affile_set_fd_permission(OpenFileProperties *props, int fd)
 {
   if (!g_fd_set_cloexec (fd, TRUE))
-    return -1;
+    return FALSE;
 
   return grant_file_permissions_fd(fd,
                                    props->file_access.uid,
@@ -163,7 +163,7 @@ affile_open_file(const gchar *name, OpenFileProperties *props)
   if (fd < 0)
     return -1;
 
-  if (affile_set_fd_permission(props, fd) < 0)
+  if (!affile_set_fd_permission(props, fd))
     msg_warning("Failed to set file permissions",
                 evt_tag_str ("path", name),
                 evt_tag_int ("fd", fd),
