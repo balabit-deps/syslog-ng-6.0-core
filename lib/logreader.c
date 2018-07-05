@@ -466,6 +466,17 @@ log_reader_force_flush_buffer(LogReader *self)
 }
 
 static void
+log_reader_restart_follow_timer(LogReader *self)
+{
+  if (iv_timer_registered(&self->follow_timer))
+    iv_timer_unregister(&self->follow_timer);
+  iv_validate_now();
+  self->follow_timer.expires = iv_now;
+  timespec_add_msec(&self->follow_timer.expires, self->options->follow_freq);
+  iv_timer_register(&self->follow_timer);
+}
+
+static void
 log_reader_restart_task_handler(gpointer s)
 {
   LogReader *self = (LogReader *)s;
@@ -482,6 +493,8 @@ log_reader_restart_task_handler(gpointer s)
         }
       log_reader_io_process_input(s);
     }
+  else if(self->options->follow_freq > 0)
+    log_reader_restart_follow_timer(self);
 }
 
 static void
@@ -756,12 +769,7 @@ log_reader_update_watches(LogReader *self)
     {
       if (self->options->follow_freq > 0)
         {
-          if (iv_timer_registered(&self->follow_timer))
-            iv_timer_unregister(&self->follow_timer);
-          iv_validate_now();
-          self->follow_timer.expires = iv_now;
-          timespec_add_msec(&self->follow_timer.expires, self->options->follow_freq);
-          iv_timer_register(&self->follow_timer);
+          log_reader_restart_follow_timer(self);
 
           /*
            * we should detect the end of file as soon as possible
@@ -1363,8 +1371,6 @@ log_reader_options_init(LogReaderOptions *options, GlobalConfig *cfg, const gcha
 
   if (options->msg_size == -1)
     options->msg_size = cfg->log_msg_size;
-  if (options->follow_freq == -1)
-    options->follow_freq = cfg->follow_freq;
   if (options->check_hostname == -1)
     options->check_hostname = cfg->check_hostname;
   if (options->check_hostname)
