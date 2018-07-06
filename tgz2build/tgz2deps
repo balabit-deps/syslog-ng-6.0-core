@@ -16,3 +16,4 @@ libsystemd-client-dev
 libsystemd-client
 libgoogle-perftools-dev
 libtcmalloc-minimal0
+libcap-dev
