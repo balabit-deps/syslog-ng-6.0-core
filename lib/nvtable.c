@@ -626,15 +626,6 @@ nv_table_foreach_entry(NVTable *self, NVTableForeachEntryFunc func, gpointer use
 }
 
 void
-nv_table_clear(NVTable *self)
-{
-  g_assert(self->ref_cnt == 1);
-  self->used = 0;
-  self->num_dyn_entries = 0;
-  memset(&self->static_entries[0], 0, self->num_static_entries * sizeof(self->static_entries[0]));
-}
-
-void
 nv_table_init(NVTable *self, gsize alloc_length, gint num_static_entries)
 {
   self->size = nv_table_get_size(alloc_length);
