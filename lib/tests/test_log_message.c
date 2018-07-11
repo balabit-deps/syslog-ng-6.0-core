@@ -73,32 +73,6 @@ construct_log_message_with_all_bells_and_whistles(void)
   return msg;
 }
 
-void
-assert_log_msg_clear_clears_all_properties(LogMessage *msg)
-{
-  log_msg_clear(msg);
-
-  assert_string("", log_msg_get_value(msg, nv_handle, NULL), "Message still contains value after log_msg_clear");
-  assert_string("", log_msg_get_value(msg, sd_handle, NULL), "Message still contains sdata value after log_msg_clear");
-  assert_true(msg->saddr == NULL, "Message still contains an saddr after log_msg_clear");
-  assert_false(log_msg_is_tag_by_name(msg, tag_name), "Message still contains a valid tag after log_msg_clear");
-}
-
-static void
-test_log_message_can_be_cleared(void)
-{
-  LogMessage *msg, *clone;
-
-  msg = construct_log_message_with_all_bells_and_whistles();
-  clone = clone_cow_log_message(msg);
-
-  assert_log_msg_clear_clears_all_properties(clone);
-  log_msg_unref(clone);
-
-  assert_log_msg_clear_clears_all_properties(msg);
-  log_msg_unref(msg);
-}
-
 
 PersistState *state;
 
@@ -133,7 +107,6 @@ void
 test_log_message(void)
 {
   MSG_TESTCASE(test_log_message_can_be_created_and_freed);
-  MSG_TESTCASE(test_log_message_can_be_cleared);
   MSG_TESTCASE(test_rcptid_is_automatically_assigned_to_a_newly_created_log_message);
 }
 
