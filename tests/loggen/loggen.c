@@ -329,7 +329,7 @@ parse_line(const char *line, GString *host, GString *program, GString *pid, char
     }
 
   pos = strchr(pos, ':');
-  if (!pos)
+  if (!pos || pos == line)
     return -1;
 
   /* pid */
@@ -337,7 +337,7 @@ parse_line(const char *line, GString *host, GString *program, GString *pid, char
   if (*(--pos) == ']')
     {
       end = pos - 1;
-      while (*(--pos) != '[')
+      while ((pos > line) && *(--pos) != '[')
         ;
 
       pid_len = end - pos; /* 'end' points to the last character of the pid string (not off by one), *pos = '[' -> pid length = end - pos*/
@@ -351,14 +351,14 @@ parse_line(const char *line, GString *host, GString *program, GString *pid, char
 
   /* Program */
   end = pos;
-  while (*(--pos) != ' ')
+  while ((pos > line) && *(--pos) != ' ')
     ;
 
   program = g_string_append_len(program, (const gchar*)pos+1, end - pos - 1);
 
   /* Host */
   end = pos;
-  while (*(--pos) != ' ')
+  while ((pos > line) && *(--pos) != ' ')
     ;
 
   host = g_string_append_len(host, (const gchar*)pos+1, end - pos - 1);
