@@ -1278,6 +1278,15 @@ afsocket_dd_reconnect(AFSocketDestDriver *self)
     }
 }
 
+static void
+afsocket_dd_rewind_stateless_proto_backlog(AFSocketDestDriver *self)
+{
+  if (!log_proto_factory_is_proto_stateful(self->proto_factory))
+   {
+     log_writer_msg_rewind(self->writer);
+   }
+}
+
 gboolean
 afsocket_dd_init(LogPipe *s)
 {
@@ -1359,6 +1368,8 @@ afsocket_dd_init(LogPipe *s)
       return FALSE;
     }
   log_pipe_append(&self->super.super.super, self->writer);
+
+  afsocket_dd_rewind_stateless_proto_backlog(self);
 
   if (!log_writer_opened((LogWriter *) self->writer))
     afsocket_dd_reconnect(self);
