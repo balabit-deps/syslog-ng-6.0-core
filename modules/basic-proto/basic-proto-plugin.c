@@ -34,6 +34,7 @@ static LogProtoFactory tls_framed_client_proto =
 {
   .create = &log_proto_framed_client_new_plugin,
   .construct_transport = NULL,
+  .stateful = FALSE,
   .default_port = 6514
 };
 
@@ -51,6 +52,7 @@ static LogProtoFactory tls_framed_server_proto =
 {
   .create = &log_proto_framed_server_new_plugin,
   .construct_transport = NULL,
+  .stateful = FALSE,
   .default_port = 6514
 };
 
@@ -68,6 +70,7 @@ static LogProtoFactory stream_framed_client_proto =
 {
   .create = &log_proto_framed_client_new_plugin,
   .construct_transport = NULL,
+  .stateful = FALSE,
   .default_port = 601
 };
 
@@ -84,6 +87,7 @@ static LogProtoFactory stream_framed_server_proto =
 {
   .create = &log_proto_framed_server_new_plugin,
   .construct_transport = NULL,
+  .stateful = FALSE,
   .default_port = 601
 };
 
@@ -100,6 +104,7 @@ static LogProtoFactory stream_newline_client_proto =
 {
   .create = &log_proto_text_client_new_plugin,
   .construct_transport = NULL,
+  .stateful = FALSE,
   .default_port = 514
 };
 
@@ -116,12 +121,14 @@ static LogProtoFactory stream_newline_server_proto =
 {
   .create = &log_proto_text_server_new_plugin,
   .construct_transport = NULL,
+  .stateful = FALSE,
   .default_port = 514
 };
 
 static LogProtoFactory file_reader_proto =
 {
-  .create = &log_proto_file_reader_new_plugin
+  .create = &log_proto_file_reader_new_plugin,
+  .stateful = FALSE
 };
 
 static LogProtoFactory *
@@ -142,6 +149,7 @@ file_reader_proto_construct(Plugin *self, GlobalConfig *cfg, gint plugin_type, c
 static LogProtoFactory record_client_proto =
 {
   .create = &log_proto_record_client_new_plugin,
+  .stateful = FALSE,
   .construct_transport = NULL
 };
 
@@ -157,6 +165,7 @@ record_client_proto_construct(Plugin *self, GlobalConfig *cfg, gint plugin_type,
 static LogProtoFactory record_server_proto =
 {
   .create = &log_proto_record_server_new_plugin,
+  .stateful = FALSE,
   .construct_transport = NULL
 };
 
@@ -173,6 +182,7 @@ static LogProtoFactory dgram_client_proto =
 {
   .create = &log_proto_dgram_client_new_plugin,
   .construct_transport = NULL,
+  .stateful = FALSE,
   .default_port = 514
 };
 
@@ -189,6 +199,7 @@ static LogProtoFactory dgram_server_proto =
 {
   .create = &log_proto_dgram_server_new_plugin,
   .construct_transport = NULL,
+  .stateful = FALSE,
   .default_port = 514
 };
 
@@ -204,6 +215,7 @@ dgram_server_proto_construct(Plugin *self, GlobalConfig *cfg, gint plugin_type, 
 static LogProtoFactory file_writer_client_proto =
 {
   .create = &log_proto_file_writer_new_plugin,
+  .stateful = FALSE,
   .construct_transport = NULL
 };
 
