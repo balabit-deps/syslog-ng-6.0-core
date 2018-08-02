@@ -142,11 +142,17 @@ log_writer_msg_ack(guint num_msg_acked, gpointer user_data)
   log_queue_ack_backlog(self->queue, num_msg_acked);
 }
 
+void
+log_writer_msg_rewind(LogWriter *self)
+{
+  log_queue_rewind_backlog_all(self->queue);
+}
+
 static void
-log_writer_msg_rewind(gpointer user_data)
+log_writer_msg_rewind_cb(gpointer user_data)
 {
   LogWriter *self = (LogWriter *)user_data;
-  log_queue_rewind_backlog_all(self->queue);
+  log_writer_msg_rewind(self);
 }
 
 static void
@@ -176,7 +182,7 @@ log_writer_set_proto(LogWriter *self, LogProto *proto)
     {
       LogProtoFlowControlFuncs flow_control_funcs;
       flow_control_funcs.ack_callback = log_writer_msg_ack;
-      flow_control_funcs.rewind_callback = log_writer_msg_rewind;
+      flow_control_funcs.rewind_callback = log_writer_msg_rewind_cb;
       flow_control_funcs.rewind_on_error_callback = log_writer_msg_rewind_on_error;
       flow_control_funcs.user_data = self;
 
