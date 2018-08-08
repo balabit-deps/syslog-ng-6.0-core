@@ -100,6 +100,7 @@ struct _LogWriter
 
   gboolean has_to_poll;
   gboolean force_read;
+  gboolean partial_write;
 };
 
 /**
@@ -1204,6 +1205,8 @@ log_writer_write_message(LogWriter *self, LogMessage *msg, LogPathOptions *path_
     {
       LogProtoStatus status = log_proto_post(self->proto, msg, (guchar *)self->line_buffer->str, self->line_buffer->len, &consumed);
 
+      self->partial_write = status == LPS_PARTIAL;
+
       if (consumed)
         log_writer_realloc_line_buffer(self);
 
@@ -1534,6 +1537,12 @@ log_writer_reopen_deferred(gpointer s)
     }
 
   log_writer_stop_watches(self);
+
+  if (self->partial_write)
+   {
+     log_queue_rewind_backlog_all(self->queue);
+   }
+
   log_writer_free_proto(self);
   log_writer_set_proto(self, proto);
 
