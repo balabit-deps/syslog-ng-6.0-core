@@ -131,7 +131,7 @@ log_proto_text_client_flush_buffer(LogProto *s)
       else if (rc != len)
         {
           self->partial_pos += rc;
-          return LPS_SUCCESS;
+          return LPS_PARTIAL;
         }
       else
         {
@@ -191,7 +191,7 @@ log_proto_client_post_writer(LogProto *s, LogMessage *logmsg, guchar *msg, gsize
       goto write_error;
     }
 
-  if (self->partial)
+  if (self->partial||status == LPS_PARTIAL)
     {
       /* NOTE: the partial buffer has not been emptied yet even with the
        * flush above, we shouldn't attempt to write again.
@@ -204,7 +204,7 @@ log_proto_client_post_writer(LogProto *s, LogMessage *logmsg, guchar *msg, gsize
        * This obviously would cause the framing to break. Also libssl
        * returns an error in this case, which is how this was discovered.
        */
-      return status;
+      return LPS_PARTIAL;
     }
 
   if (self->partial_len != 0 && !self->partial && syslog_proto)
