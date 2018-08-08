@@ -190,7 +190,8 @@ log_proto_client_post_writer(LogProto *s, LogMessage *logmsg, guchar *msg, gsize
     {
       goto write_error;
     }
-  else if (self->partial)
+
+  if (self->partial)
     {
       /* NOTE: the partial buffer has not been emptied yet even with the
        * flush above, we shouldn't attempt to write again.
@@ -205,7 +206,8 @@ log_proto_client_post_writer(LogProto *s, LogMessage *logmsg, guchar *msg, gsize
        */
       return status;
     }
-  else if (self->partial_len != 0 && !self->partial && syslog_proto)
+
+  if (self->partial_len != 0 && !self->partial && syslog_proto)
     {
       LogProtoFramedClient *framed_self = (LogProtoFramedClient *) s;
       self->partial_pos =0;
