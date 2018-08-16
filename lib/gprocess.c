@@ -210,7 +210,7 @@ _when_cap_syslog_is_not_supported_resort_to_cap_sys_admin(int capability)
 }
 
 static cap_t
-_create_caps_with_flag(int capability, int onoff)
+_create_caps_with_flag(int capability)
 {
   cap_t caps = NULL;
 
@@ -221,7 +221,7 @@ _create_caps_with_flag(int capability, int onoff)
 
   capability = _when_cap_syslog_is_not_supported_resort_to_cap_sys_admin(capability);
 
-  if (cap_set_flag(caps, CAP_EFFECTIVE, 1, &capability, onoff) == -1)
+  if (cap_set_flag(caps, CAP_EFFECTIVE, 1, &capability, CAP_SET) == -1)
     {
       msg_error("Error managing capability set, cap_set_flag returned an error",
                 evt_tag_errno("error", errno),
@@ -251,18 +251,8 @@ _cap_set_proc(cap_t caps)
   return TRUE;
 }
 
-/**
- * g_process_cap_modify:
- * @capability: capability to turn off or on
- * @onoff: specifies whether the capability should be enabled or disabled
- *
- * This function modifies the current permitted set of capabilities by
- * enabling or disabling the capability specified in @capability.
- *
- * Returns: whether the operation was successful.
- **/
-static gboolean
-g_process_cap_modify(int capability, int onoff)
+gboolean
+g_process_enable_cap(int capability)
 {
   gboolean res = FALSE;
   cap_t caps;
@@ -270,7 +260,7 @@ g_process_cap_modify(int capability, int onoff)
   if (!process_opts.caps)
     return TRUE;
 
-  caps = _create_caps_with_flag(capability, onoff);
+  caps = _create_caps_with_flag(capability);
   if (!caps)
     return FALSE;
 
@@ -278,18 +268,6 @@ g_process_cap_modify(int capability, int onoff)
   cap_free(caps);
 
   return res;
-}
-
-gboolean
-g_process_cap_raise(int capability)
-{
-  return g_process_cap_modify(capability, TRUE);
-}
-
-gboolean
-g_process_cap_drop(int capability)
-{
-  return g_process_cap_modify(capability, FALSE);
 }
 
 /**

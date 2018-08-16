@@ -141,28 +141,28 @@ void string_list_free(GList *l);
 static inline void
 raise_file_permissions()
 {
-  g_process_cap_raise(CAP_CHOWN);
-  g_process_cap_raise(CAP_FOWNER);
-  g_process_cap_raise(CAP_DAC_OVERRIDE);
+  g_process_enable_cap(CAP_CHOWN);
+  g_process_enable_cap(CAP_FOWNER);
+  g_process_enable_cap(CAP_DAC_OVERRIDE);
 }
 
 static inline void
 raise_syslog_privileged_read_permissions()
 {
-  g_process_cap_raise(CAP_DAC_READ_SEARCH);
-  g_process_cap_raise(CAP_SYSLOG);
+  g_process_enable_cap(CAP_DAC_READ_SEARCH);
+  g_process_enable_cap(CAP_SYSLOG);
 }
 
 static inline void
 raise_read_permissions()
 {
-  g_process_cap_raise(CAP_DAC_READ_SEARCH);
+  g_process_enable_cap(CAP_DAC_READ_SEARCH);
 }
 
 static inline void
 raise_read_write_permissions()
 {
-  g_process_cap_raise(CAP_DAC_OVERRIDE);
+  g_process_enable_cap(CAP_DAC_OVERRIDE);
 }
 
 static inline void
