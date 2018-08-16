@@ -207,6 +207,14 @@ typedef enum _cap_result_type
   CAP_SUPPORTED               =  1,
 } cap_result_type;
 
+#ifndef PR_CAPBSET_READ
+
+/* old glibc versions don't have PR_CAPBSET_READ, we define it to the
+ * value as defined in newer versions. */
+
+#define PR_CAPBSET_READ 23
+#endif
+
 static cap_result_type
 _check_and_get_cap_from_text(const gchar *cap_text, cap_value_t *cap)
 {
@@ -233,13 +241,15 @@ static inline int
 _when_cap_syslog_is_not_supported_resort_to_cap_sys_admin(int capability)
 {
   if (capability == cap_syslog && !have_capsyslog)
-    capability = CAP_SYS_ADMIN;
+   {
+     _check_and_get_cap_from_text("cap_sys_admin", &capability);
+   }
 
   return capability;
 }
 
 static cap_t
-_create_caps_with_flag(int capability)
+_create_caps_with_flag(const gchar *cap_name)
 {
   cap_t caps = NULL;
 
@@ -247,6 +257,11 @@ _create_caps_with_flag(int capability)
 
   if (!caps)
     return NULL;
+
+  cap_value_t capability;
+  cap_result_type ret = _check_and_get_cap_from_text(cap_name, &capability);
+  if (CAP_SUPPORTED != ret)
+     return NULL;
 
   capability = _when_cap_syslog_is_not_supported_resort_to_cap_sys_admin(capability);
 
@@ -281,7 +296,7 @@ _cap_set_proc(cap_t caps)
 }
 
 gboolean
-g_process_enable_cap(int capability)
+g_process_enable_cap(const gchar *cap_name)
 {
   gboolean res = FALSE;
   cap_t caps;
@@ -289,7 +304,7 @@ g_process_enable_cap(int capability)
   if (!process_opts.caps)
     return TRUE;
 
-  caps = _create_caps_with_flag(capability);
+  caps = _create_caps_with_flag(cap_name);
   if (!caps)
     return FALSE;
 
@@ -335,14 +350,6 @@ g_process_cap_restore(cap_t r)
 
   cap_free(r);
 }
-
-#ifndef PR_CAPBSET_READ
-
-/* old glibc versions don't have PR_CAPBSET_READ, we define it to the
- * value as defined in newer versions. */
-
-#define PR_CAPBSET_READ 23
-#endif
 
 gboolean
 g_process_check_cap_syslog(void)
