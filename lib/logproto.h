@@ -300,7 +300,14 @@ struct _LogProtoFactory
   LogProto *(*create)(LogTransport *transport, LogProtoOptions *options, GlobalConfig *cfg);
   LogTransport *(*construct_transport)(LogProtoOptions *options, int fd, int flags, TLSContext *tls_context);
   guint default_port;
+  gboolean stateful;
 };
+
+static inline gboolean
+log_proto_factory_is_proto_stateful(LogProtoFactory *self)
+{
+  return self->stateful;
+}
 
 LogProtoFactory *log_proto_get_factory(GlobalConfig *cfg,LogProtoType type,const gchar *name);
 void log_proto_check_server_options(LogProtoServerOptions *options);

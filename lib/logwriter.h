@@ -87,6 +87,7 @@ gboolean log_writer_has_pending_writes(LogWriter *self);
 gboolean log_writer_opened(LogWriter *self);
 void log_writer_reopen(LogPipe *s, LogProto *proto, LogProtoOptions *proto_options);
 LogPipe *log_writer_new(guint32 flags);
+void log_writer_msg_rewind(LogWriter *self);
 void log_writer_set_queue(LogPipe *s, LogQueue *queue);
 
 LogQueue *log_writer_get_queue(LogWriter *self);
