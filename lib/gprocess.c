@@ -200,6 +200,35 @@ inherit_systemd_activation(void)
 
 static int have_capsyslog = FALSE;
 
+typedef enum _cap_result_type
+{
+  CAP_NOT_SUPPORTED_BY_KERNEL = -2,
+  CAP_NOT_SUPPORTED_BY_LIBCAP = -1,
+  CAP_SUPPORTED               =  1,
+} cap_result_type;
+
+static cap_result_type
+_check_and_get_cap_from_text(const gchar *cap_text, cap_value_t *cap)
+{
+  int ret;
+
+  ret = cap_from_name(cap_text, cap);
+  if (ret == -1)
+    {
+      return CAP_NOT_SUPPORTED_BY_LIBCAP;
+    }
+
+  ret = prctl(PR_CAPBSET_READ, *cap);
+  if (ret == -1)
+    {
+      return CAP_NOT_SUPPORTED_BY_KERNEL;
+    }
+
+  return CAP_SUPPORTED;
+}
+
+
+
 static inline int
 _when_cap_syslog_is_not_supported_resort_to_cap_sys_admin(int capability)
 {
