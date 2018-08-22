@@ -131,7 +131,7 @@ log_proto_text_client_flush_buffer(LogProto *s)
       else if (rc != len)
         {
           self->partial_pos += rc;
-          return LPS_SUCCESS;
+          return LPS_PARTIAL;
         }
       else
         {
@@ -179,18 +179,19 @@ static LogProtoStatus
 log_proto_client_post_writer(LogProto *s, LogMessage *logmsg, guchar *msg, gsize msg_len, gboolean *consumed, gboolean syslog_proto)
 {
   LogProtoTextClient *self = (LogProtoTextClient *) s;
-  gint rc;
+  LogProtoStatus status;
 
   /* NOTE: the client does not support charset conversion for now */
   g_assert(self->super.convert == (GIConv) -1);
 
   *consumed = FALSE;
-  rc = log_proto_text_client_flush_buffer(s);
-  if (rc == LPS_ERROR)
+  status = log_proto_text_client_flush_buffer(s);
+  if (status == LPS_ERROR)
     {
       goto write_error;
     }
-  else if (self->partial)
+
+  if (self->partial||status == LPS_PARTIAL)
     {
       /* NOTE: the partial buffer has not been emptied yet even with the
        * flush above, we shouldn't attempt to write again.
@@ -203,20 +204,21 @@ log_proto_client_post_writer(LogProto *s, LogMessage *logmsg, guchar *msg, gsize
        * This obviously would cause the framing to break. Also libssl
        * returns an error in this case, which is how this was discovered.
        */
-      return rc;
+      return LPS_PARTIAL;
     }
-  else if (self->partial_len != 0 && !self->partial && syslog_proto)
+
+  if (self->partial_len != 0 && !self->partial && syslog_proto)
     {
       LogProtoFramedClient *framed_self = (LogProtoFramedClient *) s;
       self->partial_pos =0;
       self->partial_len =0;
       framed_self->state = LPFCS_FRAME_INIT;
-      return rc;
+      return status;
     }
 
   /* OK, partial buffer empty, now flush msg that we just got */
 
-  rc = log_transport_write(self->super.transport, msg, msg_len);
+  const gssize rc = log_transport_write(self->super.transport, msg, msg_len);
 
   if (rc < 0 || rc != msg_len)
     {

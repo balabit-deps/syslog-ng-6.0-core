@@ -93,6 +93,7 @@ typedef enum
   LPS_ERROR,
   LPS_EOF,
   LPS_AGAIN,
+  LPS_PARTIAL,
 } LogProtoStatus;
 
 typedef enum
