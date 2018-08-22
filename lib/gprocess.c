@@ -341,8 +341,6 @@ g_process_cap_save(void)
 void
 g_process_cap_restore(cap_t r)
 {
-  gboolean rc;
-
   if (!process_opts.caps)
     return;
 
