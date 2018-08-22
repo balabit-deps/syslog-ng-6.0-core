@@ -55,11 +55,11 @@ static inline EVTTAG* evt_tag_id(int id)
 
 /* fatal->warning goes out to the console during startup, notice and below
  * comes goes to the log even during startup */
-#define msg_fatal(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_CRIT, desc, tag1, ##__VA_ARGS__ )); } } while (0)
-#define msg_error(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_ERR, desc, tag1, ##__VA_ARGS__ )); } } while (0)
-#define msg_warning(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_WARNING, desc, tag1, ##__VA_ARGS__ )); } } while (0)
-#define msg_notice(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_NOTICE, desc, tag1, ##__VA_ARGS__ )); } } while (0)
-#define msg_info(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_INFO, desc, tag1, ##__VA_ARGS__ )); } } while (0)
+#define msg_fatal(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_CRIT, desc, tag1, ##__VA_ARGS__, NULL )); } } while (0)
+#define msg_error(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_ERR, desc, tag1, ##__VA_ARGS__, NULL )); } } while (0)
+#define msg_warning(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_WARNING, desc, tag1, ##__VA_ARGS__, NULL )); } } while (0)
+#define msg_notice(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_NOTICE, desc, tag1, ##__VA_ARGS__, NULL )); } } while (0)
+#define msg_info(desc, tag1, ...) do { if (msg_limit_internal_message()) { msg_event_send(msg_event_create(EVT_PRI_INFO, desc, tag1, ##__VA_ARGS__, NULL )); } } while (0)
 /* just like msg_info, but prepends the message with a timestamp -- useful in interactive
  * tools with long running time to provide some feedback */
 
@@ -72,7 +72,7 @@ static inline EVTTAG* evt_tag_id(int id)
             timestamp = ctime(&t); \
             timestamp[strlen(timestamp) - 1] = 0; \
             newdesc = g_strdup_printf("[%s] %s", timestamp, desc); \
-            msg_event_send(msg_event_create(EVT_PRI_INFO, newdesc, tag1, ##__VA_ARGS__ )); \
+            msg_event_send(msg_event_create(EVT_PRI_INFO, newdesc, tag1, ##__VA_ARGS__, NULL )); \
             g_free(newdesc); \
            }\
         } while (0)
@@ -88,7 +88,7 @@ static inline EVTTAG* evt_tag_id(int id)
 	do { \
 	  if (G_UNLIKELY(debug_flag))                                   \
       if (msg_limit_internal_message()) \
-	      msg_event_send(msg_event_create(EVT_PRI_DEBUG, desc, tag1, ##__VA_ARGS__ )); \
+	      msg_event_send(msg_event_create(EVT_PRI_DEBUG, desc, tag1, ##__VA_ARGS__, NULL )); \
 	} while (0)
 
 #if ENABLE_DEBUG
@@ -96,7 +96,7 @@ static inline EVTTAG* evt_tag_id(int id)
 	do { \
 	  if (G_UNLIKELY(trace_flag))                                   \
       if (msg_limit_internal_message()) \
-        msg_event_send(msg_event_create(EVT_PRI_DEBUG, desc, tag1, ##__VA_ARGS__ )); \
+        msg_event_send(msg_event_create(EVT_PRI_DEBUG, desc, tag1, ##__VA_ARGS__, NULL )); \
 	} while (0)
 #else
 #define msg_trace(desc, tag1, ...)
