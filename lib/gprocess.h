@@ -42,14 +42,9 @@ typedef enum
 
 #if ENABLE_LINUX_CAPS
 
-gboolean g_process_cap_raise(int capability);
-gboolean g_process_cap_drop(int capability);
+gboolean g_process_enable_cap(const gchar *cap_name);
 cap_t g_process_cap_save(void);
 void g_process_cap_restore(cap_t r);
-
-#ifndef CAP_SYSLOG
-#define CAP_SYSLOG -1
-#endif
 
 #else
 
@@ -57,8 +52,7 @@ typedef gpointer cap_t;
 
 #define g_process_cap_save() NULL
 #define g_process_cap_restore(cap) cap = cap
-#define g_process_cap_raise(cap)
-#define g_process_cap_drop(cap)
+#define g_process_enable_cap(cap)
 
 #endif
 
