@@ -99,7 +99,6 @@ static gint init_result_pipe[2] = { -1, -1 };
 static GProcessKind process_kind = G_PK_STARTUP;
 static gboolean stderr_present = TRUE;
 
-/* global variables */
 static struct
 {
   GProcessMode mode;
@@ -199,18 +198,58 @@ inherit_systemd_activation(void)
 #if ENABLE_LINUX_CAPS
 
 static int have_capsyslog = FALSE;
+static cap_value_t cap_syslog;
+
+typedef enum _cap_result_type
+{
+  CAP_NOT_SUPPORTED_BY_KERNEL = -2,
+  CAP_NOT_SUPPORTED_BY_LIBCAP = -1,
+  CAP_SUPPORTED               =  1,
+} cap_result_type;
+
+#ifndef PR_CAPBSET_READ
+
+/* old glibc versions don't have PR_CAPBSET_READ, we define it to the
+ * value as defined in newer versions. */
+
+#define PR_CAPBSET_READ 23
+#endif
+
+static cap_result_type
+_check_and_get_cap_from_text(const gchar *cap_text, cap_value_t *cap)
+{
+  int ret;
+
+  ret = cap_from_name(cap_text, cap);
+  if (ret == -1)
+    {
+      return CAP_NOT_SUPPORTED_BY_LIBCAP;
+    }
+
+  ret = prctl(PR_CAPBSET_READ, *cap);
+  if (ret == -1)
+    {
+      return CAP_NOT_SUPPORTED_BY_KERNEL;
+    }
+
+  return CAP_SUPPORTED;
+}
+
+
 
 static inline int
 _when_cap_syslog_is_not_supported_resort_to_cap_sys_admin(int capability)
 {
-  if (capability == CAP_SYSLOG && (!have_capsyslog || CAP_SYSLOG == -1))
-    capability = CAP_SYS_ADMIN;
+  if (capability == cap_syslog && !have_capsyslog)
+   {
+     _check_and_get_cap_from_text("cap_sys_admin", &capability);
+   }
 
   return capability;
 }
 
 static cap_t
-_create_caps_with_flag(int capability, int onoff)
+_create_caps_with_flag(const gchar *cap_name)
 {
   cap_t caps = NULL;
 
@@ -219,9 +258,14 @@ _create_caps_with_flag(int capability, int onoff)
   if (!caps)
     return NULL;
 
+  cap_value_t capability;
+  cap_result_type ret = _check_and_get_cap_from_text(cap_name, &capability);
+  if (CAP_SUPPORTED != ret)
+     return NULL;
+
   capability = _when_cap_syslog_is_not_supported_resort_to_cap_sys_admin(capability);
 
-  if (cap_set_flag(caps, CAP_EFFECTIVE, 1, &capability, onoff) == -1)
+  if (cap_set_flag(caps, CAP_EFFECTIVE, 1, &capability, CAP_SET) == -1)
     {
       msg_error("Error managing capability set, cap_set_flag returned an error",
                 evt_tag_errno("error", errno),
@@ -251,18 +295,8 @@ _cap_set_proc(cap_t caps)
   return TRUE;
 }
 
-/**
- * g_process_cap_modify:
- * @capability: capability to turn off or on
- * @onoff: specifies whether the capability should be enabled or disabled
- *
- * This function modifies the current permitted set of capabilities by
- * enabling or disabling the capability specified in @capability.
- *
- * Returns: whether the operation was successful.
- **/
-static gboolean
-g_process_cap_modify(int capability, int onoff)
+gboolean
+g_process_enable_cap(const gchar *cap_name)
 {
   gboolean res = FALSE;
   cap_t caps;
@@ -270,7 +304,7 @@ g_process_cap_modify(int capability, int onoff)
   if (!process_opts.caps)
     return TRUE;
 
-  caps = _create_caps_with_flag(capability, onoff);
+  caps = _create_caps_with_flag(cap_name);
   if (!caps)
     return FALSE;
 
@@ -278,18 +312,6 @@ g_process_cap_modify(int capability, int onoff)
   cap_free(caps);
 
   return res;
-}
-
-gboolean
-g_process_cap_raise(int capability)
-{
-  return g_process_cap_modify(capability, TRUE);
-}
-
-gboolean
-g_process_cap_drop(int capability)
-{
-  return g_process_cap_modify(capability, FALSE);
 }
 
 /**
@@ -319,8 +341,6 @@ g_process_cap_save(void)
 void
 g_process_cap_restore(cap_t r)
 {
-  gboolean rc;
-
   if (!process_opts.caps)
     return;
 
@@ -329,31 +349,37 @@ g_process_cap_restore(cap_t r)
   cap_free(r);
 }
 
-#ifndef PR_CAPBSET_READ
-
-/* old glibc versions don't have PR_CAPBSET_READ, we define it to the
- * value as defined in newer versions. */
-
-#define PR_CAPBSET_READ 23
-#endif
-
 gboolean
 g_process_check_cap_syslog(void)
 {
-  int ret;
 
   if (have_capsyslog)
     return TRUE;
 
-  if (CAP_SYSLOG == -1)
-    return FALSE;
+  switch (_check_and_get_cap_from_text("cap_syslog", &cap_syslog))
+    {
+    case CAP_NOT_SUPPORTED_BY_LIBCAP:
+      fprintf (stderr, "The CAP_SYSLOG is not supported by libcap;"
+               "Falling back to CAP_SYS_ADMIN!\n");
+      return FALSE;
+      break;
 
-  ret = prctl(PR_CAPBSET_READ, CAP_SYSLOG);
-  if (ret == -1)
-    return FALSE;
+    case CAP_NOT_SUPPORTED_BY_KERNEL:
+      fprintf (stderr, "CAP_SYSLOG seems to be supported by libcap, but "
+               "the kernel does not appear to recognize it. Falling back "
+               "to CAP_SYS_ADMIN!\n");
+      return FALSE;
+      break;
 
-  have_capsyslog = TRUE;
-  return TRUE;
+    case CAP_SUPPORTED:
+      have_capsyslog = TRUE;
+      return TRUE;
+      break;
+
+    default:
+      return FALSE;
+      break;
+    }
 }
 
 #endif
@@ -675,6 +701,22 @@ g_process_detach_stdio(void)
     }
 }
 
+static void
+g_process_set_dumpable(void)
+{
+#if ENABLE_LINUX_CAPS
+  if (!prctl(PR_GET_DUMPABLE, 0, 0, 0, 0))
+    {
+      gint rc;
+
+      rc = prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
+
+      if (rc < 0)
+        g_process_message("Cannot set process to be dumpable; error='%s'", g_strerror(errno));
+    }
+#endif
+}
+
 /**
  * g_process_enable_core:
  *
@@ -688,17 +730,7 @@ g_process_enable_core(void)
 
   if (process_opts.core)
     {
-#if ENABLE_LINUX_CAPS
-      if (!prctl(PR_GET_DUMPABLE, 0, 0, 0, 0))
-        {
-          gint rc;
-
-          rc = prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
-
-          if (rc < 0)
-            g_process_message("Cannot set process to be dumpable; error='%s'", g_strerror(errno));
-        }
-#endif
+      g_process_set_dumpable();
 
       limit.rlim_cur = limit.rlim_max = RLIM_INFINITY;
       if (setrlimit(RLIMIT_CORE, &limit) < 0)
@@ -809,6 +841,15 @@ g_process_change_root(void)
   return TRUE;
 }
 
+static void
+g_process_keep_caps(void)
+{
+#if ENABLE_LINUX_CAPS
+  if (process_opts.caps)
+    prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+#endif
+}
+
 /**
  * g_process_change_user:
  *
@@ -821,10 +862,7 @@ g_process_change_root(void)
 static gboolean
 g_process_change_user(void)
 {
-#if ENABLE_LINUX_CAPS
-  if (process_opts.caps)
-    prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
-#endif
+  g_process_keep_caps();
 
   if (process_opts.gid >= 0)
     {
