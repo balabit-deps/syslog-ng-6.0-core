@@ -128,6 +128,8 @@ struct _GlobalConfig
   guchar *cfg_hash;
   gchar *cfg_processed_config;
   gboolean stats_reset;
+  guint min_iw_size_per_reader;
+
   gchar *(*calculate_hash)(GlobalConfig *self);
   void (*show_reload_message)(GlobalConfig *self);
   void (*show_start_message)(GlobalConfig *self);
