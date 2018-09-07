@@ -537,6 +537,8 @@ cfg_new(gint version)
   self->show_start_message = config_show_start_message;
   self->show_shutdown_message = config_show_shutdown_message;
   self->use_uniqid = FALSE;
+  self->min_iw_size_per_reader = 100;
+
   return self;
 }
 

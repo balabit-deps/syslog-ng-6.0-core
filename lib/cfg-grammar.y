@@ -189,6 +189,7 @@ extern struct _ValuePairsTransformSet *last_vp_transset;
 %token KW_PROTO_TEMPLATE              10079
 %token KW_MARK_MODE                   10080
 %token KW_STATS_MAX_DYNAMIC           10081
+%token KW_MIN_IW_SIZE_PER_READER      10082
 
 %token KW_CHAIN_HOSTNAMES             10090
 %token KW_NORMALIZE_HOSTNAMES         10091
@@ -824,6 +825,7 @@ options_item
 	| KW_USE_RCPTID '(' yesno ')'           { cfg_set_use_uniqid($3); }
 	| KW_USE_UNIQID '(' yesno ')'           { cfg_set_use_uniqid($3); }
 	| KW_STATS_RESET '(' yesno ')'         {}
+	| KW_MIN_IW_SIZE_PER_READER '(' positive_integer ')' { configuration->min_iw_size_per_reader = $3; }
 	| LL_IDENTIFIER '(' string_or_number ')' {
                                             check_option = (PluginGlobalOption *)g_hash_table_lookup(configuration->global_options, normalize_option_name($1));
                                             CHECK_ERROR(check_option,@1,"Unknown option: %s", $1);
@@ -831,7 +833,7 @@ options_item
                                             check_option->value = g_strdup($3);
                                             free($3);
                                            }
-	| KW_USE_TIME_RECVD '(' yesno ')'	{ }
+	| KW_USE_TIME_RECVD '(' yesno ')'       { }
 	| { last_template_options = &configuration->template_options; } template_option { $$ = last_template_options; }
 	;
 
