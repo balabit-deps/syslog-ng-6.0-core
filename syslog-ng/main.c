@@ -162,6 +162,9 @@ setup_caps (void)
   static gchar *capsstr_syslog = BASE_CAPS "cap_syslog=ep";
   static gchar *capsstr_sys_admin = BASE_CAPS "cap_sys_admin=ep";
 
+  if (!g_process_is_cap_enabled())
+    return;
+
   /* Set up the minimal privilege we'll need
    *
    * NOTE: polling /proc/kmsg requires cap_sys_admin, otherwise it'll always
@@ -225,8 +228,6 @@ main(int argc, char *argv[])
 
   g_process_set_argv_space(argc, (gchar **) argv);
 
-  setup_caps();
-
   install_dat_filename = get_reloc_string(PATH_INSTALL_DAT);
 
   ctx = g_option_context_new("syslog-ng");
@@ -259,6 +260,8 @@ main(int argc, char *argv[])
       plugin_list_modules(stdout, TRUE);
       return 0;
     }
+
+  setup_caps();
 
   if (is_fips_enabled)
     {
