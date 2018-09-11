@@ -112,6 +112,7 @@ static struct
   const gchar *pidfile_dir;
   const gchar *cwd;
   const gchar *caps;
+  gboolean enable_caps;
   gint  argc;
   gchar **argv;
   gchar *argv_start;
@@ -136,7 +137,9 @@ static struct
   .check_period = -1,
   .check_fn = NULL,
   .uid = -1,
-  .gid = -1
+  .gid = -1,
+  .enable_caps = TRUE,
+  .caps = NULL
 };
 
 #if ENABLE_SYSTEMD
@@ -301,7 +304,7 @@ g_process_enable_cap(const gchar *cap_name)
   gboolean res = FALSE;
   cap_t caps;
 
-  if (!process_opts.caps)
+  if (!g_process_is_cap_enabled())
     return TRUE;
 
   caps = _create_caps_with_flag(cap_name);
@@ -325,7 +328,7 @@ g_process_enable_cap(const gchar *cap_name)
 cap_t 
 g_process_cap_save(void)
 {
-  if (!process_opts.caps)
+  if (!g_process_is_cap_enabled())
     return NULL;
 
   return cap_get_proc();
@@ -341,12 +344,18 @@ g_process_cap_save(void)
 void
 g_process_cap_restore(cap_t r)
 {
-  if (!process_opts.caps)
+  if (!g_process_is_cap_enabled())
     return;
 
   _cap_set_proc(r);
 
   cap_free(r);
+}
+
+gboolean
+g_process_is_cap_enabled(void)
+{
+  return process_opts.enable_caps;
 }
 
 gboolean
@@ -359,15 +368,21 @@ g_process_check_cap_syslog(void)
   switch (_check_and_get_cap_from_text("cap_syslog", &cap_syslog))
     {
     case CAP_NOT_SUPPORTED_BY_LIBCAP:
-      fprintf (stderr, "The CAP_SYSLOG is not supported by libcap;"
-               "Falling back to CAP_SYS_ADMIN!\n");
+      if (debug_flag)
+        {
+          fprintf (stderr, "The CAP_SYSLOG is not supported by libcap;"
+                   "Falling back to CAP_SYS_ADMIN!\n");
+        }
       return FALSE;
       break;
 
     case CAP_NOT_SUPPORTED_BY_KERNEL:
-      fprintf (stderr, "CAP_SYSLOG seems to be supported by libcap, but "
-               "the kernel does not appear to recognize it. Falling back "
-               "to CAP_SYS_ADMIN!\n");
+      if (debug_flag)
+        {
+           fprintf (stderr, "CAP_SYSLOG seems to be supported by libcap, but "
+                    "the kernel does not appear to recognize it. Falling back "
+                    "to CAP_SYS_ADMIN!\n");
+        }
       return FALSE;
       break;
 
@@ -521,6 +536,9 @@ g_process_set_working_dir(const gchar *cwd)
 void 
 g_process_set_caps(const gchar *caps)
 {
+  if (!g_process_is_cap_enabled())
+    return;
+
   if (!process_opts.caps)
     process_opts.caps = caps;
 }
@@ -845,7 +863,7 @@ static void
 g_process_keep_caps(void)
 {
 #if ENABLE_LINUX_CAPS
-  if (process_opts.caps)
+  if (g_process_is_cap_enabled())
     prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
 #endif
 }
@@ -907,14 +925,14 @@ g_process_change_user(void)
 static gboolean
 g_process_change_caps(void)
 {
-  if (process_opts.caps)
+  if (g_process_is_cap_enabled())
     {
       cap_t cap = cap_from_text(process_opts.caps);
 
       if (cap == NULL)
         {
           g_process_message("Error parsing capabilities: %s", process_opts.caps);
-          process_opts.caps = NULL;
+          process_opts.enable_caps = FALSE;
           return FALSE;
         }
       else
@@ -925,7 +943,7 @@ g_process_change_caps(void)
                   " capability management disabled; error='%s'",
                   process_opts.caps,
                   g_strerror(errno));
-              process_opts.caps = NULL;
+              process_opts.enable_caps = FALSE;
 
             }
           cap_free(cap);
@@ -1514,6 +1532,7 @@ g_process_process_no_caps(const gchar *option_name G_GNUC_UNUSED, const gchar *v
                           gpointer data G_GNUC_UNUSED, GError *error)
 {
   process_opts.caps = NULL;
+  process_opts.enable_caps = FALSE;
   return TRUE;
 }
 
