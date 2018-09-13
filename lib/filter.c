@@ -92,15 +92,21 @@ typedef struct _FilterOp
   FilterExprNode *left, *right;
 } FilterOp;
 
-static void
+static gboolean
 fop_init(FilterExprNode *s, GlobalConfig *cfg)
 {
   FilterOp *self = (FilterOp *) s;
 
-  if (self->left && self->left->init)
-    self->left->init(self->left, cfg);
-  if (self->right && self->right->init)
-    self->right->init(self->right, cfg);
+  g_assert(self->left);
+  g_assert(self->right);
+
+  if (self->left->init && !self->left->init(self->left, cfg))
+     return FALSE;
+
+  if (self->right->init && !self->right->init(self->right, cfg))
+     return FALSE;
+
+  return TRUE;
 }
 
 static void
@@ -497,7 +503,7 @@ filter_call_eval(FilterExprNode *s, LogMessage **msgs, gint num_msg)
     }
 }
 
-static void
+static gboolean
 filter_call_init(FilterExprNode *s, GlobalConfig *cfg)
 {
   FilterCall *self = (FilterCall *) s;
@@ -506,7 +512,10 @@ filter_call_init(FilterExprNode *s, GlobalConfig *cfg)
   rule = g_hash_table_lookup(cfg->filters, self->rule);
   if (rule)
     {
-      log_pipe_init((LogPipe *)(LogFilterPipe *) rule->head->data, cfg);
+      if (!log_pipe_init((LogPipe *)(LogFilterPipe *) rule->head->data, cfg))
+        {
+          return FALSE;
+        }
       self->filter_expr = ((LogFilterPipe *) rule->head->data)->expr;
     }
   else
@@ -514,7 +523,10 @@ filter_call_init(FilterExprNode *s, GlobalConfig *cfg)
       msg_error("Referenced filter rule not found in filter() expression",
                 evt_tag_str("rule", self->rule),
                 NULL);
+      return FALSE;
     }
+
+  return TRUE;
 }
 
 static void
@@ -680,7 +692,8 @@ log_filter_pipe_init(LogPipe *s)
   LogFilterPipe *self = (LogFilterPipe *) s;
 
   if (self->expr->init)
-    self->expr->init(self->expr, log_pipe_get_config(s));
+    return self->expr->init(self->expr, log_pipe_get_config(s));
+
   return TRUE;
 }
 
