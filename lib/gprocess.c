@@ -239,6 +239,23 @@ _check_and_get_cap_from_text(const gchar *cap_text, cap_value_t *cap)
 }
 
 
+/**
+ * g_process_set_caps:
+ * @caps: capability specification in text form
+ *
+ * This function should be called by the daemon to set the initial
+ * capability set. The process will change its capabilities to this value
+ * during startup, provided it has enough permissions to do so.
+ **/
+void
+g_process_set_caps(const gchar *caps)
+{
+  if (!g_process_is_cap_enabled())
+    return;
+
+  if (!process_opts.caps)
+    process_opts.caps = caps;
+}
 
 static inline int
 _when_cap_syslog_is_not_supported_resort_to_cap_sys_admin(int capability)
@@ -522,25 +539,6 @@ g_process_set_working_dir(const gchar *cwd)
 {
   if (!process_opts.cwd)
     process_opts.cwd = cwd;
-}
-
-
-/**
- * g_process_set_caps:
- * @caps: capability specification in text form
- *
- * This function should be called by the daemon to set the initial
- * capability set. The process will change its capabilities to this value
- * during startup, provided it has enough permissions to do so.
- **/
-void 
-g_process_set_caps(const gchar *caps)
-{
-  if (!g_process_is_cap_enabled())
-    return;
-
-  if (!process_opts.caps)
-    process_opts.caps = caps;
 }
 
 /**
