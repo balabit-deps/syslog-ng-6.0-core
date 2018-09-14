@@ -46,6 +46,7 @@ gboolean g_process_enable_cap(const gchar *cap_name);
 gboolean g_process_is_cap_enabled(void);
 cap_t g_process_cap_save(void);
 void g_process_cap_restore(cap_t r);
+void g_process_set_caps(const gchar *caps);
 
 #else
 
@@ -54,6 +55,7 @@ typedef gpointer cap_t;
 #define g_process_cap_save() NULL
 #define g_process_cap_restore(cap) cap = cap
 #define g_process_enable_cap(cap)
+#define g_process_set_caps(cap)
 
 #endif
 
@@ -68,7 +70,6 @@ void g_process_set_chroot(const gchar *chroot);
 void g_process_set_pidfile(const gchar *pidfile);
 void g_process_set_pidfile_dir(const gchar *pidfile_dir);
 void g_process_set_working_dir(const gchar *cwd);
-void g_process_set_caps(const gchar *caps);
 void g_process_set_argv_space(gint argc, gchar **argv);
 void g_process_set_use_fdlimit(gboolean use);
 void g_process_set_check(gint check_period, gboolean (*check_fn)(void));
