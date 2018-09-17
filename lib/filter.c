@@ -483,6 +483,7 @@ typedef struct _FilterCall
   FilterExprNode super;
   FilterExprNode *filter_expr;
   gchar *rule;
+  gboolean visited; /* During init this is used to detect loop */
 } FilterCall;
 
 static gboolean
@@ -509,6 +510,14 @@ filter_call_init(FilterExprNode *s, GlobalConfig *cfg)
   FilterCall *self = (FilterCall *) s;
   LogProcessRule *rule;
 
+  if (self->visited)
+    {
+       msg_error("Loop detected in filter rule",
+                 evt_tag_str("rule", self->rule));
+       return FALSE;
+    }
+  self->visited = TRUE;
+
   rule = g_hash_table_lookup(cfg->filters, self->rule);
   if (rule)
     {
@@ -525,6 +534,8 @@ filter_call_init(FilterExprNode *s, GlobalConfig *cfg)
                 NULL);
       return FALSE;
     }
+
+  self->visited = FALSE;
 
   return TRUE;
 }
