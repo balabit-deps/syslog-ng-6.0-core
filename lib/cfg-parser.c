@@ -79,6 +79,7 @@ static CfgLexerKeyword main_keywords[] = {
   { "stats_level",        KW_STATS_LEVEL },
   { "stats_max_dynamic",  KW_STATS_MAX_DYNAMIC },
   { "stats",              KW_STATS_FREQ, 0, KWS_OBSOLETE, "stats_freq" },
+  { "min_iw_size_per_reader", KW_MIN_IW_SIZE_PER_READER },
   { "flush_lines",        KW_FLUSH_LINES },
   { "flush_timeout",      KW_FLUSH_TIMEOUT, 0, KWS_OBSOLETE, "flush_timeout has been ignored since " VERSION_PE_4_2},
   { "suppress",           KW_SUPPRESS },
