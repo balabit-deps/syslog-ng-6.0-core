@@ -45,6 +45,10 @@
 #endif
 #include <string.h>
 
+#ifndef WIN32
+#include <sys/un.h>
+#endif
+
 #ifndef CLOCK_MONOTONIC
 #define CLOCK_MONOTONIC CLOCK_REALTIME
 #endif
@@ -221,6 +225,17 @@ const void *memrchr(const void *s, int c, size_t n);
 typedef int bb_socklen_t;
 #else
 typedef socklen_t bb_socklen_t;
+#endif
+
+/*
+  SUN_LEN is not a POSIX standard, thus not available on all platforms.
+  If it is available we should rely on it. Otherwise we use the formula
+  from the Linux man page.
+*/
+#ifndef WIN32
+#ifndef SUN_LEN
+#define SUN_LEN(ptr) ((size_t) (((struct sockaddr_un *) 0)->sun_path) + strlen ((ptr)->sun_path))
+#endif
 #endif
 
 #ifdef _WIN32
