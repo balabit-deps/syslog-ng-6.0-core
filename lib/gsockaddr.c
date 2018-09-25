@@ -42,6 +42,7 @@ struct sockaddr_un
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "compat.h"
 
 /* general GSockAddr functions */
 
@@ -593,7 +594,7 @@ g_sockaddr_unix_new(const gchar *name)
     {
       strncpy(addr->saun.sun_path, name, sizeof(addr->saun.sun_path) - 1);
       addr->saun.sun_path[sizeof(addr->saun.sun_path) - 1] = 0;
-      addr->salen = sizeof(addr->saun) - sizeof(addr->saun.sun_path) + strlen(addr->saun.sun_path) + 1;
+      addr->salen = SUN_LEN(&(addr->saun));
     }
   else
     {
