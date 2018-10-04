@@ -208,7 +208,7 @@ _stats_counter_item_to_string (Property *prop)
   if (!self->value_str)
     self->value_str = g_string_sized_new(64);
 
-  g_string_printf(self->value_str, "%d", self->value);
+  g_string_printf(self->value_str, "%u", (guint)self->value);
   return self->value_str->str;
 }
 
