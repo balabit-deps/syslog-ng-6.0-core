@@ -263,11 +263,49 @@ _increment_dynamic_stats_counters(const gchar *source_name, LogMessage *msg)
 }
 
 static void
+log_source_override_host(LogSource *self, LogMessage *msg)
+{
+  if (self->options->host_override_len < 0)
+    self->options->host_override_len = strlen(self->options->host_override);
+  log_msg_set_value(msg, LM_V_HOST, self->options->host_override, self->options->host_override_len);
+}
+
+static void
+log_source_override_program(LogSource *self, LogMessage *msg)
+{
+  if (self->options->program_override_len < 0)
+    self->options->program_override_len = strlen(self->options->program_override);
+  log_msg_set_value(msg, LM_V_PROGRAM, self->options->program_override, self->options->program_override_len);
+}
+
+
+static gboolean
+_invoke_mangle_callbacks(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options)
+{
+  LogSource *self = (LogSource *) s;
+  GList *next_item = NULL;
+
+  next_item = g_list_first(self->options->source_queue_callbacks);
+  while(next_item)
+  {
+    if(next_item->data)
+      {
+        if(!((mangle_callback) (next_item->data))(log_pipe_get_config(s),msg,self))
+          {
+            log_msg_drop(msg, path_options, AT_PROCESSED);
+            return FALSE;
+          }
+      }
+    next_item = next_item->next;
+  }
+  return TRUE;
+}
+
+static void
 log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options, gpointer user_data)
 {
   LogSource *self = (LogSource *) s;
   LogPathOptions local_options = *path_options;
-  GList *next_item = NULL;
   gint old_window_size;
   gint i;
 
@@ -286,21 +324,11 @@ log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options
   /* $HOST setup */
   log_source_mangle_hostname(self, msg);
 
-  /* $PROGRAM override */
   if (self->options->program_override)
-    {
-      if (self->options->program_override_len < 0)
-        self->options->program_override_len = strlen(self->options->program_override);
-      log_msg_set_value(msg, LM_V_PROGRAM, self->options->program_override, self->options->program_override_len);
-    }
+    log_source_override_program(self, msg);
 
-  /* $HOST override */
   if (self->options->host_override)
-    {
-      if (self->options->host_override_len < 0)
-        self->options->host_override_len = strlen(self->options->host_override);
-      log_msg_set_value(msg, LM_V_HOST, self->options->host_override, self->options->host_override_len);
-    }
+    log_source_override_host(self, msg);
 
   if (self->options->use_syslogng_pid)
     {
@@ -348,19 +376,8 @@ log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options
   g_assert(old_window_size > 0);
 
   /* mangle callbacks */
-  next_item = g_list_first(self->options->source_queue_callbacks);
-  while(next_item)
-  {
-    if(next_item->data)
-      {
-        if(!((mangle_callback) (next_item->data))(log_pipe_get_config(s),msg,self))
-          {
-            log_msg_drop(msg, &local_options, AT_PROCESSED);
-            return;
-          }
-      }
-    next_item = next_item->next;
-  }
+  if (!_invoke_mangle_callbacks(&self->super, msg, &local_options))
+    return;
 
   log_pipe_forward_msg(s, msg, &local_options);
 
