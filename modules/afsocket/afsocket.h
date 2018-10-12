@@ -158,6 +158,7 @@ void afsocket_dd_set_transport(LogDriver *s, const gchar *transport);
 void afsocket_dd_set_keep_alive(LogDriver *self, gint enable);
 void afsocket_dd_init_instance(AFSocketDestDriver *self, SocketOptions *sock_options, gint family, const gchar *hostname, guint32 flags);
 gboolean afsocket_dd_init(LogPipe *s);
+gboolean afsocket_dd_deinit(LogPipe *s);
 void afsocket_dd_free(LogPipe *s);
 gboolean afsocket_sd_set_multi_line_prefix(LogDriver *s, gchar *prefix);
 gboolean afsocket_sd_set_multi_line_garbage(LogDriver *s, gchar *garbage);
