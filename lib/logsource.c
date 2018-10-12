@@ -231,15 +231,43 @@ log_source_deinit(LogPipe *s)
   return TRUE;
 }
 
+static inline void
+_increment_dynamic_stats_counters(const gchar *source_name, LogMessage *msg)
+{
+  StatsCounterItem *processed_counter, *stamp;
+  StatsCounter *handle;
+  gboolean new;
+
+  if (stats_check_level(2))
+    {
+      stats_lock();
+
+      handle = stats_register_dynamic_counter(2, SCS_HOST | SCS_SOURCE, NULL, log_msg_get_value(msg, LM_V_HOST, NULL), SC_TYPE_PROCESSED, &processed_counter, &new);
+      stats_register_associated_counter(handle, SC_TYPE_STAMP, &stamp);
+      stats_counter_inc(processed_counter);
+      stats_counter_set(stamp, msg->timestamps[LM_TS_RECVD].tv_sec);
+      stats_unregister_dynamic_counter(handle, SC_TYPE_PROCESSED, &processed_counter);
+      stats_unregister_dynamic_counter(handle, SC_TYPE_STAMP, &stamp);
+
+      if (stats_check_level(3))
+        {
+          stats_instant_inc_dynamic_counter(3, SCS_SENDER | SCS_SOURCE, NULL, log_msg_get_value(msg, LM_V_HOST_FROM, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
+          stats_instant_inc_dynamic_counter(3, SCS_PROGRAM | SCS_SOURCE, NULL, log_msg_get_value(msg, LM_V_PROGRAM, NULL), -1);
+
+          stats_instant_inc_dynamic_counter(3, SCS_HOST | SCS_SOURCE, source_name, log_msg_get_value(msg, LM_V_HOST, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
+          stats_instant_inc_dynamic_counter(3, SCS_SENDER | SCS_SOURCE, source_name, log_msg_get_value(msg, LM_V_HOST_FROM, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
+        }
+
+      stats_unlock();
+    }
+}
+
 static void
 log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options, gpointer user_data)
 {
   LogSource *self = (LogSource *) s;
   LogPathOptions local_options = *path_options;
   GList *next_item = NULL;
-  StatsCounterItem *processed_counter, *stamp;
-  gboolean new;
-  StatsCounter *handle;
   gint old_window_size;
   gint i;
 
@@ -290,28 +318,8 @@ log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options
   log_msg_set_tag_by_id(msg, self->options->source_group_tag);
 
   /* stats counters */
-  if (stats_check_level(2))
-    {
-      stats_lock();
+  _increment_dynamic_stats_counters(self->options->group_name, msg);
 
-      handle = stats_register_dynamic_counter(2, SCS_HOST | SCS_SOURCE, NULL, log_msg_get_value(msg, LM_V_HOST, NULL), SC_TYPE_PROCESSED, &processed_counter, &new);
-      stats_register_associated_counter(handle, SC_TYPE_STAMP, &stamp);
-      stats_counter_inc(processed_counter);
-      stats_counter_set(stamp, msg->timestamps[LM_TS_RECVD].tv_sec);
-      stats_unregister_dynamic_counter(handle, SC_TYPE_PROCESSED, &processed_counter);
-      stats_unregister_dynamic_counter(handle, SC_TYPE_STAMP, &stamp);
-
-      if (stats_check_level(3))
-        {
-          stats_instant_inc_dynamic_counter(3, SCS_SENDER | SCS_SOURCE, NULL, log_msg_get_value(msg, LM_V_HOST_FROM, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
-          stats_instant_inc_dynamic_counter(3, SCS_PROGRAM | SCS_SOURCE, NULL, log_msg_get_value(msg, LM_V_PROGRAM, NULL), -1);
-
-          stats_instant_inc_dynamic_counter(3, SCS_HOST | SCS_SOURCE, self->options->group_name, log_msg_get_value(msg, LM_V_HOST, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
-          stats_instant_inc_dynamic_counter(3, SCS_SENDER | SCS_SOURCE, self->options->group_name, log_msg_get_value(msg, LM_V_HOST_FROM, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
-        }
-
-      stats_unlock();
-    }
   stats_counter_inc_pri(msg->pri);
   stats_counter_inc(self->recvd_messages);
   stats_counter_set(self->last_message_seen, msg->timestamps[LM_TS_RECVD].tv_sec);
