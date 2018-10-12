@@ -318,42 +318,6 @@ log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options
 
   ack_tracker_track_msg(self->ack_tracker, msg);
 
-  /* $RCPTID create*/
-  log_msg_create_rcptid(msg);
-
-  /* $HOST setup */
-  log_source_mangle_hostname(self, msg);
-
-  if (self->options->program_override)
-    log_source_override_program(self, msg);
-
-  if (self->options->host_override)
-    log_source_override_host(self, msg);
-
-  if (self->options->use_syslogng_pid)
-    {
-      log_msg_set_value(msg, LM_V_PID, get_pid_string(), -1);
-    }
-  /* source specific tags */
-  if (self->options->tags)
-    {
-      for (i = 0; i < self->options->tags->len; i++)
-        {
-          log_msg_set_tag_by_id(msg, g_array_index(self->options->tags, LogTagId, i));
-        }
-    }
-
-  log_msg_set_tag_by_id(msg, self->options->source_group_tag);
-
-  /* stats counters */
-  _increment_dynamic_stats_counters(self->options->group_name, msg);
-
-  stats_counter_inc_pri(msg->pri);
-  stats_counter_inc(self->recvd_messages);
-  stats_counter_set(self->last_message_seen, msg->timestamps[LM_TS_RECVD].tv_sec);
-
-  /* message setup finished, send it out */
-
   /* NOTE: we start by enabling flow-control, thus we need an acknowledgement */
   local_options.ack_needed = TRUE;
   log_msg_ref(msg); // TODO: move to register_msg?
@@ -372,12 +336,47 @@ log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options
    * If the _old_ value is zero, that means that the decrement operation
    * above has decreased the value to -1.
    */
-
   g_assert(old_window_size > 0);
 
-  /* mangle callbacks */
+  /* $RCPTID create*/
+  log_msg_create_rcptid(msg);
+
+  /* $HOST setup */
+  log_source_mangle_hostname(self, msg);
+
+
+  if (self->options->use_syslogng_pid)
+    {
+      log_msg_set_value(msg, LM_V_PID, get_pid_string(), -1);
+    }
+  /* source specific tags */
+  if (self->options->tags)
+    {
+      for (i = 0; i < self->options->tags->len; i++)
+        {
+          log_msg_set_tag_by_id(msg, g_array_index(self->options->tags, LogTagId, i));
+        }
+    }
+
+  log_msg_set_tag_by_id(msg, self->options->source_group_tag);
+
   if (!_invoke_mangle_callbacks(&self->super, msg, &local_options))
     return;
+
+  if (self->options->program_override)
+    log_source_override_program(self, msg);
+
+  if (self->options->host_override)
+    log_source_override_host(self, msg);
+
+  /* stats counters */
+  _increment_dynamic_stats_counters(self->options->group_name, msg);
+
+  stats_counter_inc_pri(msg->pri);
+  stats_counter_inc(self->recvd_messages);
+  stats_counter_set(self->last_message_seen, msg->timestamps[LM_TS_RECVD].tv_sec);
+
+  /* message setup finished, send it out */
 
   log_pipe_forward_msg(s, msg, &local_options);
 
