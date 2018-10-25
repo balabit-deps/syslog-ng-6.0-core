@@ -119,10 +119,11 @@ _update_dynamic_handles(NVTable *self, NVRegistry *logmsg_registry,
       guint32 ofs;
 
       entry = nv_table_get_entry_at_ofs(self, NV_TABLE_DYNVALUE_OFS(dyn_entries[i]));
-      old_handle = NV_TABLE_DYNVALUE_HANDLE(dyn_entries[i]);
-      name = nv_entry_get_name(entry);
       if (!entry)
         continue;
+
+      old_handle = NV_TABLE_DYNVALUE_HANDLE(dyn_entries[i]);
+      name = nv_entry_get_name(entry);
 
       handle = nv_registry_alloc_handle(logmsg_registry, name);
       ofs = nv_table_get_dyn_value_offset_from_nventry(self, entry);
