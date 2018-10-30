@@ -2,7 +2,7 @@
 EXTRA_DIST =                  \
   man/syslog-ng-ctl.1.in      \
   man/syslog-ng.conf.5.in     \
-  man/syslog-debun.1.in       \
+  man/syslog-ng-debun.1.in       \
   man/pdbtool.1.in            \
   man/syslog-ng.8.in          \
   man/syslog-ng-query.1.in    \
@@ -19,7 +19,7 @@ EXTRA_DIST =                  \
 
 man_MANS = man/syslog-ng-ctl.1  \
           man/syslog-ng.conf.5  \
-          man/syslog-debun.1    \
+          man/syslog-ng-debun.1    \
           man/pdbtool.1         \
           man/syslog-ng.8       \
           man/syslog-ng-query.1 \

@@ -1621,7 +1621,7 @@ dnl PE modules
       doc/Makefile
       doc/man/syslog-ng-ctl.1
       doc/man/syslog-ng.conf.5
-      doc/man/syslog-debun.1
+      doc/man/syslog-ng-debun.1
       doc/man/pdbtool.1
       doc/man/syslog-ng.8
       doc/man/syslog-ng-query.1
