@@ -612,6 +612,22 @@ afinet_dd_init(LogPipe *s)
   return success;
 }
 
+static gboolean
+afinet_dd_deinit(LogPipe *s)
+{
+  AFInetDestDriver *self = (AFInetDestDriver *)s;
+
+#if ENABLE_SPOOF_SOURCE
+ if (self->lnet_ctx)
+    libnet_destroy(self->lnet_ctx);
+#endif
+
+  if (!afsocket_dd_deinit(s))
+    return FALSE;
+
+  return TRUE;
+}
+
 #if ENABLE_SPOOF_SOURCE
 static gboolean
 afinet_dd_construct_ipv4_packet(AFInetDestDriver *self, LogMessage *msg, GString *msg_line)
@@ -817,6 +833,7 @@ afinet_dd_new(gint af, gchar *host, gint port, guint flags)
   else if (self->super.flags & AFSOCKET_STREAM)
     self->super.transport = g_strdup("tcp");
   self->super.super.super.super.init = afinet_dd_init;
+  self->super.super.super.super.deinit = afinet_dd_deinit;
   self->super.super.super.super.queue = afinet_dd_queue;
   self->super.super.super.super.free_fn = afinet_dd_free;
   self->super.setup_socket = afinet_dd_setup_socket;
