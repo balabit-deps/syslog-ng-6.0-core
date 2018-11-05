@@ -615,9 +615,9 @@ afinet_dd_init(LogPipe *s)
 static gboolean
 afinet_dd_deinit(LogPipe *s)
 {
-  AFInetDestDriver *self = (AFInetDestDriver *)s;
 
 #if ENABLE_SPOOF_SOURCE
+ AFInetDestDriver *self = (AFInetDestDriver *)s;
  if (self->lnet_ctx)
     libnet_destroy(self->lnet_ctx);
 #endif
