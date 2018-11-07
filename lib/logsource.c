@@ -231,65 +231,13 @@ log_source_deinit(LogPipe *s)
   return TRUE;
 }
 
-static void
-log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options, gpointer user_data)
+static inline void
+_increment_dynamic_stats_counters(const gchar *source_name, LogMessage *msg)
 {
-  LogSource *self = (LogSource *) s;
-  LogPathOptions local_options = *path_options;
-  GList *next_item = NULL;
   StatsCounterItem *processed_counter, *stamp;
-  gboolean new;
   StatsCounter *handle;
-  gint old_window_size;
-  gint i;
+  gboolean new;
 
-  msg_set_context(msg);
-
-  if (msg->timestamps[LM_TS_STAMP].tv_sec == -1 || !self->options->keep_timestamp)
-    msg->timestamps[LM_TS_STAMP] = msg->timestamps[LM_TS_RECVD];
-
-  g_assert(msg->timestamps[LM_TS_STAMP].zone_offset != -1);
-
-  ack_tracker_track_msg(self->ack_tracker, msg);
-
-  /* $RCPTID create*/
-  log_msg_create_rcptid(msg);
-
-  /* $HOST setup */
-  log_source_mangle_hostname(self, msg);
-
-  /* $PROGRAM override */
-  if (self->options->program_override)
-    {
-      if (self->options->program_override_len < 0)
-        self->options->program_override_len = strlen(self->options->program_override);
-      log_msg_set_value(msg, LM_V_PROGRAM, self->options->program_override, self->options->program_override_len);
-    }
-
-  /* $HOST override */
-  if (self->options->host_override)
-    {
-      if (self->options->host_override_len < 0)
-        self->options->host_override_len = strlen(self->options->host_override);
-      log_msg_set_value(msg, LM_V_HOST, self->options->host_override, self->options->host_override_len);
-    }
-
-  if (self->options->use_syslogng_pid)
-    {
-      log_msg_set_value(msg, LM_V_PID, get_pid_string(), -1);
-    }
-  /* source specific tags */
-  if (self->options->tags)
-    {
-      for (i = 0; i < self->options->tags->len; i++)
-        {
-          log_msg_set_tag_by_id(msg, g_array_index(self->options->tags, LogTagId, i));
-        }
-    }
-
-  log_msg_set_tag_by_id(msg, self->options->source_group_tag);
-
-  /* stats counters */
   if (stats_check_level(2))
     {
       stats_lock();
@@ -306,17 +254,69 @@ log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options
           stats_instant_inc_dynamic_counter(3, SCS_SENDER | SCS_SOURCE, NULL, log_msg_get_value(msg, LM_V_HOST_FROM, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
           stats_instant_inc_dynamic_counter(3, SCS_PROGRAM | SCS_SOURCE, NULL, log_msg_get_value(msg, LM_V_PROGRAM, NULL), -1);
 
-          stats_instant_inc_dynamic_counter(3, SCS_HOST | SCS_SOURCE, self->options->group_name, log_msg_get_value(msg, LM_V_HOST, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
-          stats_instant_inc_dynamic_counter(3, SCS_SENDER | SCS_SOURCE, self->options->group_name, log_msg_get_value(msg, LM_V_HOST_FROM, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
+          stats_instant_inc_dynamic_counter(3, SCS_HOST | SCS_SOURCE, source_name, log_msg_get_value(msg, LM_V_HOST, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
+          stats_instant_inc_dynamic_counter(3, SCS_SENDER | SCS_SOURCE, source_name, log_msg_get_value(msg, LM_V_HOST_FROM, NULL), msg->timestamps[LM_TS_RECVD].tv_sec);
         }
 
       stats_unlock();
     }
-  stats_counter_inc_pri(msg->pri);
-  stats_counter_inc(self->recvd_messages);
-  stats_counter_set(self->last_message_seen, msg->timestamps[LM_TS_RECVD].tv_sec);
+}
 
-  /* message setup finished, send it out */
+static void
+log_source_override_host(LogSource *self, LogMessage *msg)
+{
+  if (self->options->host_override_len < 0)
+    self->options->host_override_len = strlen(self->options->host_override);
+  log_msg_set_value(msg, LM_V_HOST, self->options->host_override, self->options->host_override_len);
+}
+
+static void
+log_source_override_program(LogSource *self, LogMessage *msg)
+{
+  if (self->options->program_override_len < 0)
+    self->options->program_override_len = strlen(self->options->program_override);
+  log_msg_set_value(msg, LM_V_PROGRAM, self->options->program_override, self->options->program_override_len);
+}
+
+
+static gboolean
+_invoke_mangle_callbacks(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options)
+{
+  LogSource *self = (LogSource *) s;
+  GList *next_item = NULL;
+
+  next_item = g_list_first(self->options->source_queue_callbacks);
+  while(next_item)
+  {
+    if(next_item->data)
+      {
+        if(!((mangle_callback) (next_item->data))(log_pipe_get_config(s),msg,self))
+          {
+            log_msg_drop(msg, path_options, AT_PROCESSED);
+            return FALSE;
+          }
+      }
+    next_item = next_item->next;
+  }
+  return TRUE;
+}
+
+static void
+log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options, gpointer user_data)
+{
+  LogSource *self = (LogSource *) s;
+  LogPathOptions local_options = *path_options;
+  gint old_window_size;
+  gint i;
+
+  msg_set_context(msg);
+
+  if (msg->timestamps[LM_TS_STAMP].tv_sec == -1 || !self->options->keep_timestamp)
+    msg->timestamps[LM_TS_STAMP] = msg->timestamps[LM_TS_RECVD];
+
+  g_assert(msg->timestamps[LM_TS_STAMP].zone_offset != -1);
+
+  ack_tracker_track_msg(self->ack_tracker, msg);
 
   /* NOTE: we start by enabling flow-control, thus we need an acknowledgement */
   local_options.ack_needed = TRUE;
@@ -336,23 +336,47 @@ log_source_queue(LogPipe *s, LogMessage *msg, const LogPathOptions *path_options
    * If the _old_ value is zero, that means that the decrement operation
    * above has decreased the value to -1.
    */
-
   g_assert(old_window_size > 0);
 
-  /* mangle callbacks */
-  next_item = g_list_first(self->options->source_queue_callbacks);
-  while(next_item)
-  {
-    if(next_item->data)
-      {
-        if(!((mangle_callback) (next_item->data))(log_pipe_get_config(s),msg,self))
-          {
-            log_msg_drop(msg, &local_options, AT_PROCESSED);
-            return;
-          }
-      }
-    next_item = next_item->next;
-  }
+  /* $RCPTID create*/
+  log_msg_create_rcptid(msg);
+
+  /* $HOST setup */
+  log_source_mangle_hostname(self, msg);
+
+
+  if (self->options->use_syslogng_pid)
+    {
+      log_msg_set_value(msg, LM_V_PID, get_pid_string(), -1);
+    }
+  /* source specific tags */
+  if (self->options->tags)
+    {
+      for (i = 0; i < self->options->tags->len; i++)
+        {
+          log_msg_set_tag_by_id(msg, g_array_index(self->options->tags, LogTagId, i));
+        }
+    }
+
+  log_msg_set_tag_by_id(msg, self->options->source_group_tag);
+
+  if (!_invoke_mangle_callbacks(&self->super, msg, &local_options))
+    return;
+
+  if (self->options->program_override)
+    log_source_override_program(self, msg);
+
+  if (self->options->host_override)
+    log_source_override_host(self, msg);
+
+  /* stats counters */
+  _increment_dynamic_stats_counters(self->options->group_name, msg);
+
+  stats_counter_inc_pri(msg->pri);
+  stats_counter_inc(self->recvd_messages);
+  stats_counter_set(self->last_message_seen, msg->timestamps[LM_TS_RECVD].tv_sec);
+
+  /* message setup finished, send it out */
 
   log_pipe_forward_msg(s, msg, &local_options);
 
