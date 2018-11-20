@@ -244,12 +244,10 @@ log_threaded_dest_driver_init_watches(LogThrDestDriver* self)
   IV_EVENT_INIT(&self->wake_up_event);
   self->wake_up_event.cookie = self;
   self->wake_up_event.handler = log_threaded_dest_driver_wake_up;
-  iv_event_register(&self->wake_up_event);
 
   IV_EVENT_INIT(&self->shutdown_event);
   self->shutdown_event.cookie = self;
   self->shutdown_event.handler = log_threaded_dest_driver_shutdown;
-  iv_event_register(&self->shutdown_event);
 
   IV_TIMER_INIT(&self->timer_reopen);
   self->timer_reopen.cookie = self;
@@ -278,6 +276,10 @@ log_threaded_dest_driver_worker_thread_main(gpointer arg)
   log_queue_set_use_backlog(self->queue, TRUE);
 
   log_threaded_dest_driver_init_watches(self);
+
+  iv_event_register(&self->wake_up_event);
+  iv_event_register(&self->shutdown_event);
+
   log_threaded_dest_driver_start_watches(self);
 
   if (self->worker.thread_init)
@@ -292,6 +294,9 @@ log_threaded_dest_driver_worker_thread_main(gpointer arg)
   msg_debug("Worker thread finished",
             evt_tag_str("driver", self->super.super.id),
             NULL);
+
+  iv_event_unregister(&self->wake_up_event);
+  iv_event_unregister(&self->shutdown_event);
   iv_deinit();
 }
 
