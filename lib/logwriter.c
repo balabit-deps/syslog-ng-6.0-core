@@ -245,7 +245,7 @@ log_writer_work_finished(gpointer s)
                      evt_tag_id(MSG_WRITE_SUSPENDING_IO_ERROR),
                      NULL);
         }
-      goto exit;
+      return;
     }
 
   if ((self->super.flags & PIF_INITIALIZED) && self->proto)
@@ -253,9 +253,6 @@ log_writer_work_finished(gpointer s)
       /* reenable polling the source, but only if we're still initialized */
       log_writer_start_watches(self);
     }
-
-exit:
-  log_pipe_unref(&self->super);
 }
 
 static void
@@ -285,6 +282,7 @@ log_writer_io_flush_output(gpointer s)
            */
           log_writer_work_perform(s);
           log_writer_work_finished(s);
+          log_pipe_unref(s);
         }
     }
 }
@@ -1369,6 +1367,7 @@ log_writer_init_watches(LogWriter *self)
   self->io_job.user_data = self;
   self->io_job.work = (void (*)(void *)) log_writer_work_perform;
   self->io_job.completion = (void (*)(void *)) log_writer_work_finished;
+  self->io_job.release = (void (*)(void *)) log_pipe_unref;
 }
 
 static gboolean
