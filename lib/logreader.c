@@ -280,10 +280,8 @@ log_reader_io_process_input(gpointer s)
            * Our current understanding is that it doesn't prevent race
            * conditions of any kind.
            */
-          log_pipe_ref(s);
           log_reader_work_perform(s);
           log_reader_work_finished(s);
-          log_pipe_unref(s);
         }
     }
 }

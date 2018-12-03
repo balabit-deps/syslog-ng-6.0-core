@@ -280,10 +280,8 @@ log_writer_io_flush_output(gpointer s)
            * Our current understanding is that it doesn't prevent race
            * conditions of any kind.
            */
-          log_pipe_ref(s);
           log_writer_work_perform(s);
           log_writer_work_finished(s);
-          log_pipe_unref(s);
         }
     }
 }
