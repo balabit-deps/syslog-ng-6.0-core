@@ -531,7 +531,6 @@ _work_finished(gpointer s)
     {
       _update_watches(self);
     }
-  log_pipe_unref(&self->super.super);
 }
 
 static void
@@ -571,6 +570,7 @@ _io_process_input(gpointer s)
         {
           _work_perform(s);
           _work_finished(s);
+          log_pipe_unref(s);
         }
     }
 }
@@ -692,6 +692,7 @@ _init_watches(JournalReader *self)
   self->io_job.user_data = self;
   self->io_job.work = (void (*)(void *)) _work_perform;
   self->io_job.completion = (void (*)(void *)) _work_finished;
+  self->io_job.release = (void (*)(void *)) log_pipe_unref;
 }
 
 JournalReader *
