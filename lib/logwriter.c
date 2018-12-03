@@ -267,7 +267,6 @@ log_writer_io_flush_output(gpointer s)
     {
       if ((self->options->options & LWO_THREADED))
         {
-          log_pipe_ref(&self->super);
           main_loop_io_worker_job_submit(&self->io_job);
         }
       else
@@ -1366,6 +1365,7 @@ log_writer_init_watches(LogWriter *self)
   self->io_job.user_data = self;
   self->io_job.work = (void (*)(void *)) log_writer_work_perform;
   self->io_job.completion = (void (*)(void *)) log_writer_work_finished;
+  self->io_job.engage = (void (*)(void *)) log_pipe_ref;
   self->io_job.release = (void (*)(void *)) log_pipe_unref;
 }
 
