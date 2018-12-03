@@ -265,9 +265,9 @@ log_writer_io_flush_output(gpointer s)
   log_writer_stop_watches(self);
   if (!main_loop_worker_job_quit())
     {
-      log_pipe_ref(&self->super);
       if ((self->options->options & LWO_THREADED))
         {
+          log_pipe_ref(&self->super);
           main_loop_io_worker_job_submit(&self->io_job);
         }
       else
@@ -280,6 +280,7 @@ log_writer_io_flush_output(gpointer s)
            * Our current understanding is that it doesn't prevent race
            * conditions of any kind.
            */
+          log_pipe_ref(s);
           log_writer_work_perform(s);
           log_writer_work_finished(s);
           log_pipe_unref(s);
