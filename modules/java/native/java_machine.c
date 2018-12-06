@@ -99,6 +99,10 @@ __jvm_free(JavaVMSingleton *self)
       jvm->DestroyJavaVM(self->jvm);
 
     }
+
+  for (gint i = 0; i < self->vm_args.nOptions; i++)
+    g_free(self->vm_args.options[i].optionString);
+
   g_free(self);
   g_jvm_s = NULL;
 }
