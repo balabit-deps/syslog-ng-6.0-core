@@ -162,7 +162,7 @@ log_reader_work_finished(void *s)
     {
       log_pipe_deinit(s);
       self->pending_deinit = FALSE;
-      goto exit;
+      return;
     }
 
   if (self->pending_proto_present)
@@ -196,8 +196,6 @@ log_reader_work_finished(void *s)
     {
       log_pipe_notify(self->control, &self->super.super, self->notify_code, self);
     }
-exit:
-  log_pipe_unref(&self->super.super);
 }
 
 void
@@ -267,7 +265,6 @@ log_reader_io_process_input(gpointer s)
   log_reader_stop_watches(self);
   if (!main_loop_worker_job_quit())
     {
-      log_pipe_ref(&self->super.super);
       if ((self->options->flags & LR_THREADED))
         {
           main_loop_io_worker_job_submit(&self->io_job);
@@ -556,6 +553,8 @@ log_reader_init_watches(LogReader *self)
   self->io_job.user_data = self;
   self->io_job.work = (void (*)(void *)) log_reader_work_perform;
   self->io_job.completion = (void (*)(void *)) log_reader_work_finished;
+  self->io_job.engage = (void (*)(void *)) log_pipe_ref;
+  self->io_job.release = (void (*)(void *)) log_pipe_unref;
 }
 
 /* NOTE: the return value is only used during initialization, and it is not

@@ -21,7 +21,7 @@
  * COPYING for details.
  *
  */
-  
+
 #include "logwriter.h"
 #include "messages.h"
 #include "stats.h"
@@ -112,13 +112,13 @@ struct _LogWriter
  * to the target asynchronously, first by placing them to a queue and then
  * sending messages when poll() indicates that the fd is writable.
  *
- * 
+ *
  * Flow control
  * ------------
  * For a simple log writer without a disk buffer messages are placed on a
  * GQueue and they are acknowledged when the send() system call returned
  * success. This is more complex when disk buffering is used, in which case
- * messages are put to the "disk buffer" first and acknowledged immediately. 
+ * messages are put to the "disk buffer" first and acknowledged immediately.
  * (this way the reader never stops when the disk buffer area is not yet
  * full). When disk buffer reaches its limit, messages are added to the the
  * usual GQueue and messages get acknowledged when they are moved to the
@@ -245,7 +245,7 @@ log_writer_work_finished(gpointer s)
                      evt_tag_id(MSG_WRITE_SUSPENDING_IO_ERROR),
                      NULL);
         }
-      goto exit;
+      return;
     }
 
   if ((self->super.flags & PIF_INITIALIZED) && self->proto)
@@ -253,9 +253,6 @@ log_writer_work_finished(gpointer s)
       /* reenable polling the source, but only if we're still initialized */
       log_writer_start_watches(self);
     }
-
-exit:
-  log_pipe_unref(&self->super);
 }
 
 static void
@@ -268,7 +265,6 @@ log_writer_io_flush_output(gpointer s)
   log_writer_stop_watches(self);
   if (!main_loop_worker_job_quit())
     {
-      log_pipe_ref(&self->super);
       if ((self->options->options & LWO_THREADED))
         {
           main_loop_io_worker_job_submit(&self->io_job);
@@ -676,7 +672,7 @@ log_writer_last_msg_flush(LogWriter *self)
   gssize len;
   const gchar *p;
 
-  msg_debug("Suppress timer elapsed, emitting suppression summary", 
+  msg_debug("Suppress timer elapsed, emitting suppression summary",
             NULL);
 
   getlonghostname(hostname, sizeof(hostname));
@@ -758,7 +754,7 @@ log_writer_last_msg_check(LogWriter *self, LogMessage *lm, const LogPathOptions 
         {
           stats_counter_inc(self->suppressed_messages);
           self->last_msg_count++;
-          
+
           if (self->last_msg_count == 1)
             {
               /* we only create the timer if this is the first suppressed message, otherwise it is already running. */
@@ -900,9 +896,9 @@ log_writer_append_value(GString *result, LogMessage *lm, NVHandle handle, gboole
   else
     {
       gchar *space;
-      
+
       space = strchr(value, ' ');
-      
+
       if (!space)
         g_string_append_len(result, value, value_len);
       else
@@ -965,7 +961,7 @@ log_writer_format_log(LogWriter *self, LogMessage *lm, GString *result)
       else
         seq_num = 0;
     }
-  
+
   /* no template was specified, use default */
   stamp = &lm->timestamps[LM_TS_STAMP];
 
@@ -974,19 +970,19 @@ log_writer_format_log(LogWriter *self, LogMessage *lm, GString *result)
   if ((self->flags & LW_SYSLOG_PROTOCOL) || (self->options->options & LWO_SYSLOG_PROTOCOL))
     {
       gint len;
-       
+
       /* we currently hard-wire version 1 */
       g_string_append_c(result, '<');
       format_uint32_padded(result, 0, 0, 10, lm->pri);
       g_string_append_c(result, '>');
       g_string_append_c(result, '1');
       g_string_append_c(result, ' ');
- 
-      log_stamp_append_format(stamp, result, TS_FMT_ISO, 
+
+      log_stamp_append_format(stamp, result, TS_FMT_ISO,
                               time_zone_info_get_offset(self->options->template_options.time_zone_info[LTZ_SEND], stamp->tv_sec),
                               self->options->template_options.frac_digits);
       g_string_append_c(result, ' ');
-      
+
       log_writer_append_value(result, lm, LM_V_HOST, TRUE, TRUE);
       log_writer_append_value(result, lm, LM_V_PROGRAM, TRUE, TRUE);
       log_writer_append_value(result, lm, LM_V_PID, TRUE, TRUE);
@@ -996,7 +992,7 @@ log_writer_format_log(LogWriter *self, LogMessage *lm, GString *result)
       if (lm->flags & LF_LOCAL)
         {
           gchar sequence_id[16];
-          
+
           g_snprintf(sequence_id, sizeof(sequence_id), "%d", seq_num);
           log_msg_update_sdata(lm, "meta", "sequenceId", sequence_id);
         }
@@ -1008,13 +1004,13 @@ log_writer_format_log(LogWriter *self, LogMessage *lm, GString *result)
           /* NOTE: sd_param format did not generate any output, take it as an empty SD string */
           g_string_append_c(result, '-');
         }
-       
+
       if (self->options->template)
         {
           g_string_append_c(result, ' ');
           if (lm->flags & LF_UTF8)
             g_string_append_len(result, "\xEF\xBB\xBF", 3);
-          log_template_append_format(self->options->template, lm, 
+          log_template_append_format(self->options->template, lm,
                                      &self->options->template_options,
                                      LTZ_SEND,
                                      seq_num, NULL,
@@ -1053,17 +1049,17 @@ log_writer_format_log(LogWriter *self, LogMessage *lm, GString *result)
         {
           template = self->options->proto_template;
         }
-      
+
       if (template)
         {
-          log_template_format(template, lm, 
+          log_template_format(template, lm,
                               &self->options->template_options,
                               LTZ_SEND,
                               seq_num, NULL,
                               result);
 
         }
-      else 
+      else
         {
           const gchar *p;
           gssize len;
@@ -1369,6 +1365,8 @@ log_writer_init_watches(LogWriter *self)
   self->io_job.user_data = self;
   self->io_job.work = (void (*)(void *)) log_writer_work_perform;
   self->io_job.completion = (void (*)(void *)) log_writer_work_finished;
+  self->io_job.engage = (void (*)(void *)) log_pipe_ref;
+  self->io_job.release = (void (*)(void *)) log_pipe_unref;
 }
 
 static gboolean
@@ -1389,7 +1387,7 @@ log_writer_init(LogPipe *s)
       if (self->options->suppress > 0)
         stats_register_counter(self->stats_level, self->stats_source | SCS_DESTINATION, self->stats_id, self->stats_instance, SC_TYPE_SUPPRESSED, &self->suppressed_messages);
       stats_register_counter(self->stats_level, self->stats_source | SCS_DESTINATION, self->stats_id, self->stats_instance, SC_TYPE_PROCESSED, &self->processed_messages);
-      
+
       stats_register_counter(self->stats_level, self->stats_source | SCS_DESTINATION, self->stats_id, self->stats_instance, SC_TYPE_STORED, &self->stored_messages);
       stats_unlock();
     }
@@ -1451,7 +1449,7 @@ log_writer_deinit(LogPipe *s)
   stats_unregister_counter(self->stats_source | SCS_DESTINATION, self->stats_id, self->stats_instance, SC_TYPE_PROCESSED, &self->processed_messages);
   stats_unregister_counter(self->stats_source | SCS_DESTINATION, self->stats_id, self->stats_instance, SC_TYPE_STORED, &self->stored_messages);
   stats_unlock();
-  
+
   return TRUE;
 }
 
@@ -1624,7 +1622,7 @@ LogPipe *
 log_writer_new(guint32 flags)
 {
   LogWriter *self = g_new0(LogWriter, 1);
-  
+
   log_pipe_init_instance(&self->super);
   self->super.init = log_writer_init;
   self->super.deinit = log_writer_deinit;
@@ -1660,7 +1658,7 @@ log_writer_set_queue(LogPipe *s, LogQueue *queue)
   log_queue_set_use_backlog(self->queue, TRUE);
 }
 
-void 
+void
 log_writer_options_defaults(LogWriterOptions *options)
 {
   options->template = NULL;
@@ -1674,7 +1672,7 @@ log_writer_options_defaults(LogWriterOptions *options)
   options->mark_freq = -1;
 }
 
-void 
+void
 log_writer_options_set_template_escape(LogWriterOptions *options, gboolean enable)
 {
   if (options->template && options->template->def_inline)
@@ -1692,7 +1690,7 @@ log_writer_options_set_template_escape(LogWriterOptions *options, gboolean enabl
  * NOTE: options_init and options_destroy are a bit weird, because their
  * invocation is not completely symmetric:
  *
- *   - init is called from driver init (e.g. affile_dd_init), 
+ *   - init is called from driver init (e.g. affile_dd_init),
  *   - destroy is called from driver free method (e.g. affile_sd_free, NOT affile_dd_deinit)
  *
  * The reason:
@@ -1708,7 +1706,7 @@ log_writer_options_set_template_escape(LogWriterOptions *options, gboolean enabl
  *
  * As init allocates memory, it has to take care about freeing memory
  * allocated by the previous init call (or it has to reuse those).
- *   
+ *
  */
 void
 log_writer_options_init(LogWriterOptions *options, GlobalConfig *cfg, guint32 option_flags)
@@ -1730,7 +1728,7 @@ log_writer_options_init(LogWriterOptions *options, GlobalConfig *cfg, guint32 op
 
   log_writer_options_destroy(options);
   log_template_options_destroy(&options->template_options);
-  
+
   /* restroe the config */
   options->template = template;
   for (i = 0; i < LTZ_MAX; i++)
@@ -1740,7 +1738,7 @@ log_writer_options_init(LogWriterOptions *options, GlobalConfig *cfg, guint32 op
     }
   log_template_options_init(&options->template_options, cfg);
   options->options |= option_flags;
-    
+
   if (options->flush_lines == -1)
     options->flush_lines = cfg->flush_lines;
   if (options->flush_timeout == -1)
