@@ -385,35 +385,34 @@ main_loop_reload_config_apply(void)
   cfg_persist_config_move(main_loop_old_config, main_loop_new_config);
   cfg_generate_persist_file(main_loop_new_config);
 
-  if (cfg_init(main_loop_new_config))
-    {
-      msg_verbose("New configuration initialized", NULL);
-      if (strcmp(main_loop_new_config->cfg_fingerprint, main_loop_old_config->cfg_fingerprint)!=0)
-        {
-          main_loop_new_config->stats_reset = TRUE;
-        }
-      if (main_loop_old_config->use_uniqid && !main_loop_new_config->use_uniqid)
-        {
-          log_msg_deinit_rcptid();
-        }
-      else if (!main_loop_old_config->use_uniqid && main_loop_new_config->use_uniqid)
-        {
-          log_msg_init_rcptid(main_loop_new_config->state);
-        }
-
-      cfg_free(main_loop_old_config);
-      persist_config_free(main_loop_new_config->persist);
-      main_loop_new_config->persist = NULL;
-      current_configuration = main_loop_new_config;
-      service_management_clear_status();
-    }
-  else
+  if (!cfg_init(main_loop_new_config))
     {
       msg_error("Error initializing new configuration, reverting to old config", NULL);
       service_management_publish_status("Error initializing new configuration, using the old config");
       iv_task_register(&revert_config);
       return;
     }
+
+  msg_verbose("New configuration initialized", NULL);
+  if (strcmp(main_loop_new_config->cfg_fingerprint, main_loop_old_config->cfg_fingerprint)!=0)
+    {
+      main_loop_new_config->stats_reset = TRUE;
+    }
+  if (main_loop_old_config->use_uniqid && !main_loop_new_config->use_uniqid)
+    {
+      log_msg_deinit_rcptid();
+    }
+  else if (!main_loop_old_config->use_uniqid && main_loop_new_config->use_uniqid)
+    {
+      log_msg_init_rcptid(main_loop_new_config->state);
+    }
+
+  cfg_free(main_loop_old_config);
+  persist_config_free(main_loop_new_config->persist);
+  main_loop_new_config->persist = NULL;
+  current_configuration = main_loop_new_config;
+  service_management_clear_status();
+
   /* this is already running with the new config in place */
   res_init();
   app_post_config_loaded();
