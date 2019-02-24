@@ -53,7 +53,6 @@ check_PROGRAMS =			\
 	test_rewrite  \
 	test_resolve_path  \
 	test_ringbuffer \
-	test_mainloop \
 	test_hostid \
 	test_uniqid \
 	test_log_message \
@@ -147,7 +146,6 @@ test_resolve_path_SOURCES = test_resolve_path.c
 test_resolve_path_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/modules/affile
 test_resolve_path_LDADD = $(top_builddir)/modules/affile/libaffile.la $(top_builddir)/lib/libsyslog-ng.la
 
-test_mainloop_SOURCES = test_mainloop.c
 test_hostid_SOURCES = test_hostid.c
 test_uniqid_SOURCES = test_uniqid.c
 test_log_message_SOURCES = test_log_message.c
