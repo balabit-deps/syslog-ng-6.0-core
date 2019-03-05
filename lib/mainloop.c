@@ -300,6 +300,7 @@ main_loop_initialize_state(GlobalConfig *cfg, const gchar *persist_filename)
   gboolean success;
 
   cfg->state = persist_state_new(persist_filename);
+  persist_state_set_global_error_handler(cfg->state, (gpointer)main_loop_terminate);
 
   if (!persist_state_start(cfg->state))
     return FALSE;
