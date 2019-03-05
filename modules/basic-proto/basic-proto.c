@@ -1377,6 +1377,7 @@ log_proto_buffered_server_fallback_non_persistent(LogProtoBufferedServer *self)
   new_state->pending_raw_stream_pos = 0;
   new_state->file_inode = 0;
   new_state->file_size = 0;
+  self->persist_state = NULL;
   self->state1 = new_state;
 }
 
