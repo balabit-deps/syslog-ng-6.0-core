@@ -53,7 +53,7 @@ testcase_zero_diskbuf_and_normal_acks()
   fed_messages = 0;
   acked_messages = 0;
   for (i = 0; i < 10; i++)
-    feed_some_messages(q, 10, &parse_options);
+    feed_some_messages(q, 10);
 
   send_some_messages(q, fed_messages);
   app_ack_some_messages(q, fed_messages);
@@ -75,7 +75,7 @@ testcase_zero_diskbuf_alternating_send_acks()
   acked_messages = 0;
   for (i = 0; i < 10; i++)
     {
-      feed_some_messages(q, 10, &parse_options);
+      feed_some_messages(q, 10);
       send_some_messages(q, 10);
       app_ack_some_messages(q, 10);
     }
@@ -95,7 +95,7 @@ testcase_ack_and_rewind_messages()
 
   fed_messages = 0;
   acked_messages = 0;
-  feed_some_messages(q, 1000, &parse_options);
+  feed_some_messages(q, 1000);
   for(i = 0; i < 10; i++)
     {
       send_some_messages(q,1);
