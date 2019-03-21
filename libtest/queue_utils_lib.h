@@ -41,4 +41,6 @@ void app_ack_some_messages(LogQueue *q, guint n);
 
 void rewind_messages(LogQueue *q);
 
+gsize get_one_message_serialized_size(void);
+
 #endif

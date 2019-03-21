@@ -22,6 +22,7 @@
  */
 
 #include "queue_utils_lib.h"
+#include "logmsg-serialize.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -31,10 +32,35 @@
 int acked_messages = 0;
 int fed_messages = 0;
 
+gchar * const test_msg = "<155>2006-02-11T10:34:56+01:00 bzorp syslog-ng[23323]: árvíztűrőtükörfúrógép ID :%08d";
+
 void
 test_ack(LogMessage *msg, AckType ack_type)
 {
   acked_messages++;
+}
+
+gsize
+get_one_message_serialized_size(void)
+{
+  MsgFormatOptions format_options;
+  format_options.format_handler = NULL;
+
+  gchar *msg_str = g_strdup_printf(test_msg, 1);
+  GSockAddr *test_addr = g_sockaddr_inet_new("10.10.10.10", 1010);
+  LogMessage *msg = log_msg_new(msg_str, strlen(msg_str), test_addr, &format_options);
+
+  GString *serialized = g_string_sized_new(256);
+  SerializeArchive *sa = serialize_string_archive_new(serialized);
+  log_msg_write(msg, sa);
+  gsize message_length = serialized->len;
+
+  g_sockaddr_unref(test_addr);
+  g_free(msg_str);
+  log_msg_unref(msg);
+  g_string_free(serialized, TRUE);
+  serialize_archive_free(sa);
+  return message_length;
 }
 
 void
@@ -50,7 +76,7 @@ feed_some_messages(LogQueue *q, int n)
   path_options.flow_control_requested = TRUE;
   for (i = 0; i < n; i++)
     {
-      gchar *msg_str = g_strdup_printf("<155>2006-02-11T10:34:56+01:00 bzorp syslog-ng[23323]: árvíztűrőtükörfúrógép ID :%08d",i);
+      gchar *msg_str = g_strdup_printf(test_msg, i);
       GSockAddr *test_addr = g_sockaddr_inet_new("10.10.10.10", 1010);
       msg = log_msg_new(msg_str, strlen(msg_str), test_addr, &format_options);
       g_sockaddr_unref(test_addr);
