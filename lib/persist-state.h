@@ -58,6 +58,9 @@ void persist_state_set_mode(PersistState *self, PersistStateMode mode);
 PersistState *persist_state_new(const gchar *filename);
 void persist_state_free(PersistState *self);
 
+void persist_state_set_global_error_handler(PersistState *self, void (*handler)(void));
+
+
 PersistState *persist_state_get_rcptcfg_state(void);
 PersistEntryHandle persist_state_get_rcptcfg_handle(void);
 

@@ -25,7 +25,6 @@
 #include "persist-state.h"
 #include "serialize.h"
 #include "messages.h"
-#include "mainloop.h"
 #include "mainloop-call.h"
 #include "mainloop-io-worker.h"
 #include "misc.h"
@@ -62,6 +61,12 @@ typedef struct _PersistFileHeader
 #define PERSIST_FILE_INITIAL_SIZE 16384
 #define PERSIST_STATE_KEY_BLOCK_SIZE 4096
 #define PERSIST_FILE_WATERMARK 4096
+
+typedef struct
+{
+  void (*handler)(void);
+} PersistStateErrorHandler;
+
 
 /*
  * The syslog-ng persistent state is a set of name-value pairs,
@@ -144,6 +149,8 @@ struct _PersistState
   guint32 current_ofs;
   gpointer current_map;
   PersistFileHeader *header;
+  PersistStateErrorHandler error_handler;
+
 
   /* keys being used */
   GMutex *keys_lock;
@@ -325,6 +332,13 @@ _check_free_space(PersistState *self, guint32 size)
   return (size + sizeof(PersistValueHeader) +  self->current_ofs) <= self->current_size;
 }
 
+static void
+persist_state_run_error_handler(PersistState *self)
+{
+  if (self->error_handler.handler)
+    self->error_handler.handler();
+}
+
 /* "value" layer that handles memory block allocation in the file, without working with keys */
 
 static PersistEntryHandle
@@ -338,11 +352,11 @@ persist_state_alloc_value(PersistState *self, guint32 orig_size, gboolean in_use
   if ((size & 0x7))
     size = ((size >> 3) + 1) << 3;
 
-  /*
-   * The pre-allocated size should be enough (min PERSIST_FILE_WATERMARK)
-   * if not we should assert here
-   */
-  g_assert(_check_free_space(self, size));
+  if (!_check_free_space(self, size))
+    {
+      msg_error("No more free space exhausted in persist file", NULL);
+      return 0;
+    }
 
   result = self->current_ofs + sizeof(PersistValueHeader);
 
@@ -357,7 +371,10 @@ persist_state_alloc_value(PersistState *self, guint32 orig_size, gboolean in_use
 
   if (!_check_watermark(self) && !persist_state_grow_store(self, self->current_size + PERSIST_FILE_INITIAL_SIZE))
     {
-      main_loop_terminate();
+      msg_error("Can't preallocate space for persist file",
+          evt_tag_int("current", self->current_size),
+          evt_tag_int("new_size", self->current_size + PERSIST_FILE_INITIAL_SIZE));
+      persist_state_run_error_handler(self);
     }
 
   return result;
@@ -1053,6 +1070,12 @@ persist_state_free(PersistState *self)
   g_mutex_free(self->keys_lock);
   g_hash_table_destroy(self->keys);
   g_free(self);
+}
+
+void
+persist_state_set_global_error_handler(PersistState *self, void (*handler)(void))
+{
+  self->error_handler.handler = handler;
 }
 
 PersistState *

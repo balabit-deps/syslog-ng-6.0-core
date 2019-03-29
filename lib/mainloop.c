@@ -42,6 +42,7 @@
 #include "compat.h"
 #include "sgroup.h"
 #include "driver.h"
+#include "messages.h"
 #include <openssl/rand.h>
 
 #include <sys/types.h>
@@ -244,7 +245,7 @@ create_hostid()
   return hostid.id;
 }
 
-static void
+static gboolean
 main_loop_init_run_id(PersistState *persist_state)
 {
   gsize size;
@@ -262,13 +263,20 @@ main_loop_init_run_id(PersistState *persist_state)
   else
   {
     handle = persist_state_alloc_entry(persist_state, "run_id", sizeof(guint));
+    if (!handle)
+      {
+        msg_error("run-id: could not allocate persist state", NULL);
+        return FALSE;
+      }
     run_id = persist_state_map_entry(persist_state,handle);
     *run_id = main_loop_inc_and_set_run_id(0);
     persist_state_unmap_entry(persist_state,handle);
   }
+
+  return TRUE;
 }
 
-static void
+static gboolean
 main_loop_init_hostid(PersistState *persist_state)
 {
   gsize size;
@@ -287,10 +295,17 @@ main_loop_init_hostid(PersistState *persist_state)
   {
     g_hostid = create_hostid();
     handle = persist_state_alloc_entry(persist_state, "hostid", sizeof(guint32));
+    if (!handle)
+      {
+        msg_error("host-id: could not allocate persist state", NULL);
+        return FALSE;
+      }
     hostid = persist_state_map_entry(persist_state,handle);
     *hostid = g_hostid;
     persist_state_unmap_entry(persist_state,handle);
   }
+
+    return TRUE;
 }
 
 /* called when syslog-ng first starts up */
@@ -301,14 +316,17 @@ main_loop_initialize_state(GlobalConfig *cfg, const gchar *persist_filename)
   gboolean success;
 
   cfg->state = persist_state_new(persist_filename);
+  persist_state_set_global_error_handler(cfg->state, (gpointer)main_loop_terminate);
 
   if (!persist_state_start(cfg->state))
     return FALSE;
 
   cfg_generate_persist_file(cfg);
 
-  main_loop_init_run_id(cfg->state);
-  main_loop_init_hostid(cfg->state);
+  if (!main_loop_init_run_id(cfg->state))
+    return FALSE;
+  if (!main_loop_init_hostid(cfg->state))
+    return FALSE;
   if (cfg->use_uniqid)
     {
       log_msg_init_rcptid(cfg->state);
