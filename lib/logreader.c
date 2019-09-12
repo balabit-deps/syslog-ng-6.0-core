@@ -93,7 +93,6 @@ struct _LogReader
   LogReaderOptions *options;
   GSockAddr *peer_addr;
   gchar *follow_filename;
-  ino_t inode;
   gint64 size;
 
   struct iv_fd fd_watch;
@@ -105,13 +104,8 @@ struct _LogReader
   struct iv_task immediate_check_task;
   struct iv_event schedule_wakeup;
   MainLoopIOWorkerJob io_job;
-  gboolean suspended:1;
   gint pollable_state;
   gint notify_code;
-  /* Because of multiline processing logreader has to store the last read line which should start with the prefix */
-  gchar *partial_message;
-  /* store if we have to wait for a prefix, because last event was a garbage found */
-  gboolean wait_for_prefix;
   gboolean flush;
   time_t last_msg_received;
   time_t last_msg_parsed;
@@ -642,7 +636,6 @@ log_reader_update_watches(LogReader *self)
 
   main_loop_assert_main_thread();
 
-  self->suspended = FALSE;
   free_to_send = log_source_free_to_send(&self->super);
   prepare_result = log_proto_prepare(self->proto, &fd, &cond, &idle_timeout);
 
@@ -726,7 +719,6 @@ log_reader_update_watches(LogReader *self)
         }
       else
         {
-          self->suspended = TRUE;
           self->immediate_check = old_immediate_check;
         }
       return;
@@ -1248,7 +1240,6 @@ log_reader_new(LogProto *proto)
   self->super.wakeup = log_reader_wakeup;
   self->immediate_check = FALSE;
   self->pollable_state = -1;
-  self->wait_for_prefix = FALSE;
   self->flush = FALSE;
   self->force_read = FALSE;
 
