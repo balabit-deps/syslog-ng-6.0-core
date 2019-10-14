@@ -1058,8 +1058,26 @@ affile_sd_init(LogPipe *s)
   else
     {
       g_string_assign(self->filename, self->filename_pattern->str);
+
+      const gchar *persist_name =  affile_sd_format_persist_name(self->filename->str);
+      if (cfg_persist_names_is_in_use(cfg, persist_name))
+        {
+          msg_error("Persist name is already used", evt_tag_str("persist_name", persist_name), NULL);
+          return FALSE;
+        }
+      cfg_persist_names_add(cfg, persist_name, self->reader);
       return affile_sd_open(s, FALSE);
     }
+
+}
+
+static inline gchar *
+affile_dd_format_persist_name(AFFileDestDriver *self)
+{
+  static gchar persist_name[1024];
+
+  g_snprintf(persist_name, sizeof(persist_name), "affile_dd_writers(%s)", self->filename_template->template);
+  return persist_name;
 }
 
 gboolean
@@ -1068,6 +1086,8 @@ affile_sd_deinit(LogPipe *s)
   AFFileSourceDriver *self = (AFFileSourceDriver *) s;
   LogProtoServerOptions *options = (LogProtoServerOptions *)&self->proto_options;
   GlobalConfig *cfg = log_pipe_get_config(s);
+
+  cfg_persist_names_remove(cfg, affile_sd_format_persist_name(self->filename->str));
 
   if (self->reader)
     {
@@ -1516,15 +1536,6 @@ affile_dd_set_local_time_zone(LogDriver *s, const gchar *local_time_zone)
   self->local_time_zone = g_strdup(local_time_zone);
 }
 
-static inline gchar *
-affile_dd_format_persist_name(AFFileDestDriver *self)
-{
-  static gchar persist_name[1024];
-
-  g_snprintf(persist_name, sizeof(persist_name), "affile_dd_writers(%s)", self->filename_template->template);
-  return persist_name;
-}
-
 /* DestDriver lock must be held before calling this function */
 static void
 affile_dd_reap_writer(AFFileDestDriver *self, AFFileDestWriter *dw)
@@ -1587,6 +1598,13 @@ affile_dd_init(LogPipe *s)
   if (!log_dest_driver_init_method(s))
     return FALSE;
 
+  const gchar *persist_name =  affile_dd_format_persist_name(self);
+  if (cfg_persist_names_is_in_use(cfg, persist_name))
+    {
+      msg_error("Persist name is already used", evt_tag_str("persist_name", persist_name), NULL);
+      return FALSE;
+    }
+
   if (cfg->create_dirs)
     self->flags |= AFFILE_CREATE_DIRS;
   if (self->file_uid == -1)
@@ -1631,6 +1649,7 @@ affile_dd_init(LogPipe *s)
         }
     }
 
+  cfg_persist_names_add(cfg, persist_name, self->single_writer);
 
   return TRUE;
 }
@@ -1705,6 +1724,8 @@ affile_dd_deinit(LogPipe *s)
       cfg_persist_config_add(cfg, affile_dd_format_persist_name(self), self->writer_hash, affile_dd_destroy_writer_hash, FALSE);
       self->writer_hash = NULL;
     }
+
+  cfg_persist_names_remove(cfg, affile_dd_format_persist_name(self));
 
   if (!log_dest_driver_deinit_method(s))
     return FALSE;
