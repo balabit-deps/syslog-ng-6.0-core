@@ -672,8 +672,6 @@ cfg_free(GlobalConfig *self)
 {
   int i;
   g_assert(self->persist == NULL);
-  if (self->state)
-    persist_state_free(self->state);
 
   g_free(self->file_template_name);
   g_free(self->proto_template_name);
@@ -716,6 +714,10 @@ cfg_free(GlobalConfig *self)
   g_free(self->cfg_processed_config);
   g_free(self->cfg_hash);
   g_free(self->cfg_fingerprint);
+
+  if (self->state)
+    persist_state_free(self->state);
+
   g_free(self);
 }
 
