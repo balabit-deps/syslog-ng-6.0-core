@@ -1001,6 +1001,37 @@ affile_sd_idle_file_timeout_init(AFFileSourceDriver *self)
   self->idle_file_timeout.handler = affile_idle_file_timeout_schedule;
 }
 
+static gboolean
+open_with_directory_monitor(AFFileSourceDriver *self)
+{
+  cap_t old_caps = file_monitor_raise_caps(self->file_monitor);
+  /* watch_directory will use the callback, so set it first */
+  file_monitor_set_file_callback(self->file_monitor, affile_sd_monitor_callback, self);
+
+  if (!file_monitor_watch_directory(self->file_monitor, self->filename_pattern->str))
+    {
+      msg_error("Error starting filemonitor",
+                evt_tag_str("filemonitor", self->filename_pattern->str),
+                NULL);
+      g_process_cap_restore(old_caps);
+      return FALSE;
+    }
+  else if (self->reader == NULL)
+    {
+      gboolean end_of_list = TRUE;
+      gchar *filename = affile_pop_next_file((LogPipe *)self, &end_of_list);
+      if (filename)
+        {
+          g_string_assign(self->filename, filename);
+          g_free(filename);
+          g_process_cap_restore(old_caps);
+          return affile_sd_open((LogPipe *)self, !end_of_list);
+        }
+    }
+  g_process_cap_restore(old_caps);
+  return TRUE;
+}
+
 gboolean
 affile_sd_init(LogPipe *s)
 {
@@ -1022,32 +1053,7 @@ affile_sd_init(LogPipe *s)
 
   if (self->file_monitor)
     {
-      cap_t old_caps = file_monitor_raise_caps(self->file_monitor);
-      /* watch_directory will use the callback, so set it first */
-      file_monitor_set_file_callback(self->file_monitor, affile_sd_monitor_callback, self);
-
-      if (!file_monitor_watch_directory(self->file_monitor, self->filename_pattern->str))
-        {
-          msg_error("Error starting filemonitor",
-                    evt_tag_str("filemonitor", self->filename_pattern->str),
-                    NULL);
-          g_process_cap_restore(old_caps);
-          return FALSE;
-        }
-      else if (self->reader == NULL)
-        {
-          gboolean end_of_list = TRUE;
-          gchar *filename = affile_pop_next_file(s, &end_of_list);
-          if (filename)
-            {
-              g_string_assign(self->filename, filename);
-              g_free(filename);
-              g_process_cap_restore(old_caps);
-              return affile_sd_open(s, !end_of_list);
-            }
-        }
-      g_process_cap_restore(old_caps);
-      return TRUE;
+      return open_with_directory_monitor(self);
     }
   else
     {
