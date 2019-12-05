@@ -161,7 +161,7 @@ log_transport_tls_new(TLSSession *tls_session, gint fd, guint flags)
 
   self->super.flags = flags;
   self->super.fd = fd;
-  self->super.cond = G_IO_IN | G_IO_OUT;
+  self->super.cond = 0;
   self->super.read = log_transport_tls_read_method;
   self->super.write = log_transport_tls_write_method;
   self->super.free_fn = log_transport_tls_free_method;
