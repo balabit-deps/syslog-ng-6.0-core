@@ -264,7 +264,12 @@ file_monitor_inotify_destroy(gpointer source, gpointer monitor)
 static void
 file_monitor_inotify_start(FileMonitor *self, MonitorBase *source, const gchar *base_dir)
 {
-  file_monitor_list_directory(self, base_dir);
+  FMListDirectoryCallbacks cbs = {
+    .file = file_monitor_chk_file,
+    .recurse_directory = file_monitor_watch_directory
+  };
+
+  file_monitor_list_directory(self, base_dir, &cbs);
 }
 
 static gboolean

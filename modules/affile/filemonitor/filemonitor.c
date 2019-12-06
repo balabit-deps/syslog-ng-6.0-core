@@ -91,7 +91,7 @@ file_monitor_chk_file(FileMonitor *self, const gchar *base_dir, const gchar *fil
  * contents.
  **/
 gboolean
-file_monitor_list_directory(FileMonitor *self, const gchar *basedir)
+file_monitor_list_directory(FileMonitor *self, const gchar *basedir, const FMListDirectoryCallbacks *cbs)
 {
   GDir *dir = NULL;
   GError *error = NULL;
@@ -116,16 +116,15 @@ file_monitor_list_directory(FileMonitor *self, const gchar *basedir)
         {
           /* Recursion is enabled */
           if (self->options->recursion)
-            file_monitor_watch_directory(self, path); /* construct a new source to monitor the directory */
+            cbs->recurse_directory(self, path);
         }
       else
-        {
-          /* if file or symlink, match with the filter pattern */
-          file_monitor_chk_file(self, basedir, file_name);
-        }
+        cbs->file(self, basedir, file_name);
+
       files_count++;
       g_free(path);
     }
+
   msg_trace("file_monitor_list_directory directory scanning has been finished", evt_tag_int("Sum of file(s) found in directory", files_count), NULL);
   g_dir_close(dir);
   if (self->file_callback != NULL)
