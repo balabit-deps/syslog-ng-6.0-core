@@ -94,6 +94,8 @@ monitor_poll_free(MonitorPoll *self)
     g_free(self->super.base_dir);
   if (iv_timer_registered(&self->poll_timer))
     iv_timer_unregister(&self->poll_timer);
+
+  g_free(self);
 }
 
 static MonitorBase *

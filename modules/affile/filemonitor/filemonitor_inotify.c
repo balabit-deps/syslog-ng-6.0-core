@@ -226,6 +226,8 @@ monitor_source_inotify_free(gpointer s)
     }
   if (self->super.base_dir)
     g_free(self->super.base_dir);
+
+  g_free(self);
 }
 
 static MonitorBase *
