@@ -64,10 +64,10 @@ _file_is_regular(const gchar *filename)
  * This function checks if the given filename matches the filters.
  **/
 gboolean
-file_monitor_chk_file(FileMonitor *self, MonitorBase *source, const gchar *filename)
+file_monitor_chk_file(FileMonitor *self, const gchar *base_dir, const gchar *filename)
 {
   gboolean ret = FALSE;
-  gchar *path = g_build_filename(source->base_dir, filename, NULL);
+  gchar *path = g_build_filename(base_dir, filename, NULL);
 
   if (g_pattern_match_string(self->compiled_pattern, filename) &&
       self->file_callback != NULL &&
@@ -91,7 +91,7 @@ file_monitor_chk_file(FileMonitor *self, MonitorBase *source, const gchar *filen
  * contents.
  **/
 gboolean
-file_monitor_list_directory(FileMonitor *self, MonitorBase *source, const gchar *basedir)
+file_monitor_list_directory(FileMonitor *self, const gchar *basedir)
 {
   GDir *dir = NULL;
   GError *error = NULL;
@@ -121,7 +121,7 @@ file_monitor_list_directory(FileMonitor *self, MonitorBase *source, const gchar 
       else
         {
           /* if file or symlink, match with the filter pattern */
-          file_monitor_chk_file(self, source, file_name);
+          file_monitor_chk_file(self, basedir, file_name);
         }
       files_count++;
       g_free(path);

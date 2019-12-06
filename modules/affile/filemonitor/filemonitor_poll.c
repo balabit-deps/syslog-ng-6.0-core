@@ -61,7 +61,7 @@ static gboolean
 file_monitor_process_poll_event(FileMonitor *monitor, MonitorPoll *source)
 {
   msg_trace("file_monitor_process_poll_event", NULL);
-  file_monitor_list_directory(monitor, &source->super, source->super.base_dir);
+  file_monitor_list_directory(monitor, source->super.base_dir);
   return TRUE;
 }
 
@@ -116,7 +116,7 @@ static void
 file_monitor_poll_start(FileMonitor *self, MonitorBase *source, const gchar *base_dir)
 {
   MonitorPoll *p_source = (MonitorPoll *)source;
-  file_monitor_list_directory(self, source, base_dir);
+  file_monitor_list_directory(self, base_dir);
   if(iv_timer_registered(&p_source->poll_timer))
     iv_timer_unregister(&p_source->poll_timer);
   iv_validate_now();
