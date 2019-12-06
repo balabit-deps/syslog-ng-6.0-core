@@ -57,11 +57,24 @@ monitor_source_poll_new(FileMonitor *monitor)
   return self;
 }
 
+static inline void
+_check_monitored_directory(FileMonitor *monitor, const gchar *dir)
+{
+  FMListDirectoryCallbacks cbs = {
+    .file = file_monitor_chk_file,
+    .recurse_directory = file_monitor_watch_directory
+  };
+
+  file_monitor_list_directory(monitor, dir, &cbs);
+}
+
 static gboolean
 file_monitor_process_poll_event(FileMonitor *monitor, MonitorPoll *source)
 {
   msg_trace("file_monitor_process_poll_event", NULL);
-  file_monitor_list_directory(monitor, source->super.base_dir);
+
+  _check_monitored_directory(monitor, source->super.base_dir);
+
   return TRUE;
 }
 
@@ -72,6 +85,7 @@ file_monitor_poll_timer_callback(gpointer s)
   FileMonitor *file_monitor = self->super.file_monitor;
 
   file_monitor_process_poll_event(file_monitor, self);
+
   if(iv_timer_registered(&self->poll_timer))
     iv_timer_unregister(&self->poll_timer);
   iv_validate_now();
@@ -116,7 +130,9 @@ static void
 file_monitor_poll_start(FileMonitor *self, MonitorBase *source, const gchar *base_dir)
 {
   MonitorPoll *p_source = (MonitorPoll *)source;
-  file_monitor_list_directory(self, base_dir);
+
+  _check_monitored_directory(self, base_dir);
+
   if(iv_timer_registered(&p_source->poll_timer))
     iv_timer_unregister(&p_source->poll_timer);
   iv_validate_now();

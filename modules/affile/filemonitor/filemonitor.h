@@ -63,6 +63,12 @@ typedef struct _MonitorBase
   FileMonitor *file_monitor;
 } MonitorBase;
 
+typedef struct _FMListDirectoryCallbacks
+{
+  gboolean (*file)(FileMonitor *m, const gchar *base_dir, const gchar *filename);
+  gboolean (*recurse_directory)(FileMonitor *m, const gchar *dir);
+} FMListDirectoryCallbacks;
+
 static inline gboolean
 file_monitor_watch_directory(FileMonitor *self, const gchar *filename)
 {
@@ -110,7 +116,7 @@ FileMonitor *file_monitor_create_instance(FileMonitorOptions *options);
 
 void file_monitor_set_file_callback(FileMonitor *self, FileMonitorCallbackFunc file_callback, gpointer user_data);
 gboolean file_monitor_chk_file(FileMonitor *self, const gchar *base_dir, const gchar *filename);
-gboolean file_monitor_list_directory(FileMonitor *self, const gchar *basedir);
+gboolean file_monitor_list_directory(FileMonitor *self, const gchar *basedir, const FMListDirectoryCallbacks *cbs);
 gboolean file_monitor_is_dir_monitored(FileMonitor *self, const gchar *filename);
 gchar *file_monitor_resolve_base_directory_from_pattern(FileMonitor *self, const gchar *filename_pattern);
 void file_monitor_free_method(FileMonitor *self);
