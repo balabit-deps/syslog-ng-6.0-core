@@ -41,11 +41,6 @@ typedef struct _OpenFileProperties
   DWORD create_flag;
 } OpenFileProperties;
 
-void
-file_monitor_set_poll_freq(FileMonitor *monitor, gint follow_freq)
-{
-}
-
 int affile_open_fd(const gchar *name, OpenFileProperties *props)
 {
   int fd = -1;
