@@ -43,13 +43,6 @@ file_monitor_set_file_callback(FileMonitor *self, FileMonitorCallbackFunc file_c
   self->user_data = user_data;
 }
 
-void
-file_monitor_set_destroy_callback(FileMonitor *self, GSourceFunc destroy_callback, gpointer user_data)
-{
-  self->destroy_callback = destroy_callback;
-  self->user_data = user_data;
-}
-
 /**
  *  Problem: g_file_test(filename, G_FILE_TEST_EXISTS) invokes access(),
  *  that would check against real UID, not the effective UID.
