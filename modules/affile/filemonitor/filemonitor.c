@@ -71,20 +71,20 @@ _file_is_regular(const gchar *filename)
  * This function checks if the given filename matches the filters.
  **/
 gboolean
-file_monitor_chk_file(FileMonitor * monitor, MonitorBase *source, const gchar *filename)
+file_monitor_chk_file(FileMonitor *self, MonitorBase *source, const gchar *filename)
 {
   gboolean ret = FALSE;
   gchar *path = g_build_filename(source->base_dir, filename, NULL);
 
-  if (g_pattern_match_string(monitor->compiled_pattern, filename) &&
-      monitor->file_callback != NULL &&
+  if (g_pattern_match_string(self->compiled_pattern, filename) &&
+      self->file_callback != NULL &&
       _file_is_regular(path))
     {
       /* FIXME: resolve symlink */
       /* callback to affile */
       if (G_LIKELY(filename != END_OF_LIST))
         msg_trace("file_monitor_chk_file filter passed", evt_tag_str("file",path),NULL);
-      monitor->file_callback(path, monitor->user_data, ACTION_NONE);
+      self->file_callback(path, self->user_data, ACTION_NONE);
       ret = TRUE;
     }
   g_free(path);
