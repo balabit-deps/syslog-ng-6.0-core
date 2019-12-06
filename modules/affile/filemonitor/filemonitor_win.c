@@ -75,24 +75,24 @@ resolve_to_absolute_path(const gchar *path, const gchar *basedir)
  * This function checks if the given filename matches the filters.
  **/
 static gboolean
-_file_monitor_chk_file(FileMonitorWindows * monitor, const gchar *base_dir, const gchar *filename, FileActionType action_type)
+_file_monitor_chk_file(FileMonitor *monitor, const gchar *base_dir, const gchar *filename, FileActionType action_type)
 {
   gboolean ret = FALSE;
   gchar *path = g_build_filename(base_dir, filename, NULL);
   gchar *base_name = g_path_get_basename(filename);
   gchar *base_name_lower = g_utf8_strdown(base_name, -1);
-  gboolean match = g_pattern_match_string(monitor->super.compiled_pattern, base_name_lower);
+  gboolean match = g_pattern_match_string(monitor->compiled_pattern, base_name_lower);
   g_free(base_name);
   g_free(base_name_lower);
 
 
   if (match &&
-      monitor->super.file_callback != NULL)
+      monitor->file_callback != NULL)
     {
       /* FIXME: resolve symlink */
       /* callback to affile */
       msg_debug("_file_monitor_chk_file filter passed", evt_tag_str("file",path),NULL);
-      monitor->super.file_callback(path, monitor->super.user_data, action_type);
+      monitor->file_callback(path, monitor->user_data, action_type);
       ret = TRUE;
     }
   g_free(path);
@@ -127,7 +127,7 @@ _file_monitor_list_directory(FileMonitorWindows *self, const gchar *basedir)
       else
         {
           /* if file or symlink, match with the filter pattern */
-          _file_monitor_chk_file(self, basedir, file_name, ACTION_NONE);
+          _file_monitor_chk_file(&self->super, basedir, file_name, ACTION_NONE);
         }
       files_count++;
       g_free(path);
@@ -139,6 +139,11 @@ _file_monitor_list_directory(FileMonitorWindows *self, const gchar *basedir)
   return TRUE;
 }
 
+gboolean
+file_monitor_chk_file_windows(FileMonitor *self, const gchar *base_dir, const gchar *filename)
+{
+  return _file_monitor_chk_file(self, base_dir, filename, ACTION_NONE);
+}
 
 static VOID CALLBACK
 completition_routine(FileMonitorWindows *self, DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
@@ -160,7 +165,7 @@ completition_routine(FileMonitorWindows *self, DWORD dwErrorCode, DWORD dwNumber
         action_type = ACTION_DELETED;
       else if (pNotify->Action == FILE_ACTION_MODIFIED)
         action_type = ACTION_MODIFIED;
-      _file_monitor_chk_file(self, self->base_dir, szFile, action_type);
+      _file_monitor_chk_file(&self->super, self->base_dir, szFile, action_type);
     }
   while(pNotify->NextEntryOffset != 0);
   if (ReadDirectoryChangesW(self->hDir, self->buffer, FILE_MONITOR_BUFFER_SIZE, self->super.options->recursion, self->notify_flags, NULL, &self->ol, NULL) == 0)
