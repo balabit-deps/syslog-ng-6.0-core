@@ -23,6 +23,7 @@
 
 #include "filemonitor_poll.h"
 #include "filemonitor_unix.h"
+#include "filemonitor_win.h"
 
 #include "messages.h"
 #include "mainloop.h"
@@ -61,7 +62,11 @@ static inline void
 _check_monitored_directory(FileMonitor *monitor, const gchar *dir)
 {
   FMListDirectoryCallbacks cbs = {
+#ifndef G_OS_WIN32
     .file = file_monitor_chk_file,
+#else
+    .file = file_monitor_chk_file_windows,
+#endif
     .recurse_directory = file_monitor_watch_directory
   };
 
