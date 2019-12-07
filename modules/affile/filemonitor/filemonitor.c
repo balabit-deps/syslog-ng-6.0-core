@@ -158,6 +158,23 @@ file_monitor_is_dir_monitored(FileMonitor *self, const gchar *filename)
   return FALSE;
 }
 
+static inline void
+file_monitor_compile_filename_pattern(FileMonitor *self, const gchar *filename_pattern)
+{
+  gchar *p = g_path_get_basename(filename_pattern);
+
+#ifndef G_OS_WIN32
+  gchar *pattern = g_strdup(p);
+#else
+  gchar *pattern = g_utf8_strdown(p, -1);
+#endif
+
+  self->compiled_pattern = g_pattern_spec_new(pattern);
+
+  g_free(pattern);
+  g_free(p);
+}
+
 gchar *
 file_monitor_resolve_base_directory_from_pattern(FileMonitor *self, const gchar *filename_pattern)
 {
@@ -183,11 +200,7 @@ file_monitor_resolve_base_directory_from_pattern(FileMonitor *self, const gchar 
       g_free(dir_part);
 
       if (!self->compiled_pattern)
-        {
-          gchar *pattern = g_path_get_basename(filename_pattern);
-          self->compiled_pattern = g_pattern_spec_new(pattern);
-          g_free(pattern);
-        }
+        file_monitor_compile_filename_pattern(self, filename_pattern);
     }
   else
     {
