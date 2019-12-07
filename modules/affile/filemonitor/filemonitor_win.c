@@ -99,46 +99,6 @@ _file_monitor_chk_file(FileMonitor *monitor, const gchar *base_dir, const gchar 
   return ret;
 }
 
-static gboolean
-_file_monitor_list_directory(FileMonitorWindows *self, const gchar *basedir)
-{
-  GDir *dir = NULL;
-  GError *error = NULL;
-  const gchar *file_name = NULL;
-  guint files_count = 0;
-
-  /* try to open diretory */
-  dir = g_dir_open(basedir, 0, &error);
-  if (dir == NULL)
-    {
-      g_clear_error(&error);
-      return FALSE;
-    }
-
-  while ((file_name = g_dir_read_name(dir)) != NULL)
-    {
-      gchar * path = resolve_to_absolute_path(file_name, basedir);
-      if (g_file_test(path, G_FILE_TEST_IS_DIR))
-        {
-          /* Recursion is enabled */
-          if (self->super.options->recursion)
-            _file_monitor_list_directory(self, path); /* construct a new source to monitor the directory */
-        }
-      else
-        {
-          /* if file or symlink, match with the filter pattern */
-          _file_monitor_chk_file(&self->super, basedir, file_name, ACTION_NONE);
-        }
-      files_count++;
-      g_free(path);
-    }
-  msg_trace("_file_monitor_list_directory directory scanning has been finished", evt_tag_int("Sum of file(s) found in directory", files_count), NULL);
-  g_dir_close(dir);
-  if (self->super.file_callback != NULL)
-    self->super.file_callback(END_OF_LIST, self->super.user_data,ACTION_NONE);
-  return TRUE;
-}
-
 gboolean
 file_monitor_chk_file_windows(FileMonitor *self, const gchar *base_dir, const gchar *filename)
 {
@@ -200,11 +160,22 @@ file_monitor_windows_free(FileMonitor *s)
   file_monitor_free_method(s);
 }
 
+static inline gboolean
+_check_monitored_directory(FileMonitor *monitor, const gchar *dir)
+{
+  FMListDirectoryCallbacks cbs = {
+    .file = file_monitor_chk_file_windows,
+    .recurse_directory = _check_monitored_directory
+  };
+
+  return file_monitor_list_directory(monitor, dir, &cbs);
+}
+
 static gboolean
 file_monitor_windows_start_monitoring(FileMonitorWindows* self)
 {
+  _check_monitored_directory(&self->super, self->base_dir);
 
-  _file_monitor_list_directory(self,self->base_dir);
   self->hDir = CreateFile(self->base_dir, FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL);
   if (self->hDir == INVALID_HANDLE_VALUE)
     {
