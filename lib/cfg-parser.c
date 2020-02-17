@@ -252,8 +252,8 @@ report_syntax_error_warning(CfgLexer *lexer, YYLTYPE *yylloc, const char * error
       fprintf(stderr, "\n");
     }
 
-  fprintf(stderr, "\nsyslog-ng documentation: http://www.balabit.com/support/documentation/?product=syslog-ng\n"
-                  "mailing list: https://lists.balabit.hu/mailman/listinfo/syslog-ng\n");
+  fprintf(stderr, "\nsyslog-ng documentation: https://support.oneidentity.com/syslog-ng-premium-edition/technical-documents\n"
+          "contact: https://support.oneidentity.com/syslog-ng-premium-edition/ \n");
 
 }
 
