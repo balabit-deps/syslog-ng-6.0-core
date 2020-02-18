@@ -1066,6 +1066,7 @@ log_proto_buffered_server_apply_state(LogProto *s, StateHandler *state_handler)
 
   if (!self->buffer)
     {
+      state->buffer_size = MAX(state->buffer_size, self->init_buffer_size);
       self->buffer = g_malloc(state->buffer_size);
     }
 
