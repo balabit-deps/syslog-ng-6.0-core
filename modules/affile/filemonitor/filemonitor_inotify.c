@@ -97,7 +97,7 @@ file_monitor_process_inotify_event(FileMonitor *monitor, MonitorInotify *self)
           else
             {
               /* file or symlink */
-              file_monitor_chk_file(monitor, &self->super, events[i].name);
+              file_monitor_chk_file(monitor, self->super.base_dir, events[i].name);
             }
           g_free(path);
         }
@@ -226,6 +226,8 @@ monitor_source_inotify_free(gpointer s)
     }
   if (self->super.base_dir)
     g_free(self->super.base_dir);
+
+  g_free(self);
 }
 
 static MonitorBase *
@@ -262,7 +264,12 @@ file_monitor_inotify_destroy(gpointer source, gpointer monitor)
 static void
 file_monitor_inotify_start(FileMonitor *self, MonitorBase *source, const gchar *base_dir)
 {
-  file_monitor_list_directory(self, source, base_dir);
+  FMListDirectoryCallbacks cbs = {
+    .file = file_monitor_chk_file,
+    .recurse_directory = file_monitor_watch_directory
+  };
+
+  file_monitor_list_directory(self, base_dir, &cbs);
 }
 
 static gboolean

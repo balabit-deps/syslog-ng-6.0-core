@@ -43,13 +43,6 @@ file_monitor_set_file_callback(FileMonitor *self, FileMonitorCallbackFunc file_c
   self->user_data = user_data;
 }
 
-void
-file_monitor_set_destroy_callback(FileMonitor *self, GSourceFunc destroy_callback, gpointer user_data)
-{
-  self->destroy_callback = destroy_callback;
-  self->user_data = user_data;
-}
-
 /**
  *  Problem: g_file_test(filename, G_FILE_TEST_EXISTS) invokes access(),
  *  that would check against real UID, not the effective UID.
@@ -71,20 +64,20 @@ _file_is_regular(const gchar *filename)
  * This function checks if the given filename matches the filters.
  **/
 gboolean
-file_monitor_chk_file(FileMonitor * monitor, MonitorBase *source, const gchar *filename)
+file_monitor_chk_file(FileMonitor *self, const gchar *base_dir, const gchar *filename)
 {
   gboolean ret = FALSE;
-  gchar *path = g_build_filename(source->base_dir, filename, NULL);
+  gchar *path = g_build_filename(base_dir, filename, NULL);
 
-  if (g_pattern_match_string(monitor->compiled_pattern, filename) &&
-      monitor->file_callback != NULL &&
+  if (g_pattern_match_string(self->compiled_pattern, filename) &&
+      self->file_callback != NULL &&
       _file_is_regular(path))
     {
       /* FIXME: resolve symlink */
       /* callback to affile */
       if (G_LIKELY(filename != END_OF_LIST))
         msg_trace("file_monitor_chk_file filter passed", evt_tag_str("file",path),NULL);
-      monitor->file_callback(path, monitor->user_data, ACTION_NONE);
+      self->file_callback(path, self->user_data, ACTION_NONE);
       ret = TRUE;
     }
   g_free(path);
@@ -98,7 +91,7 @@ file_monitor_chk_file(FileMonitor * monitor, MonitorBase *source, const gchar *f
  * contents.
  **/
 gboolean
-file_monitor_list_directory(FileMonitor *self, MonitorBase *source, const gchar *basedir)
+file_monitor_list_directory(FileMonitor *self, const gchar *basedir, const FMListDirectoryCallbacks *cbs)
 {
   GDir *dir = NULL;
   GError *error = NULL;
@@ -123,16 +116,15 @@ file_monitor_list_directory(FileMonitor *self, MonitorBase *source, const gchar 
         {
           /* Recursion is enabled */
           if (self->options->recursion)
-            file_monitor_watch_directory(self, path); /* construct a new source to monitor the directory */
+            cbs->recurse_directory(self, path);
         }
       else
-        {
-          /* if file or symlink, match with the filter pattern */
-          file_monitor_chk_file(self, source, file_name);
-        }
+        cbs->file(self, basedir, file_name);
+
       files_count++;
       g_free(path);
     }
+
   msg_trace("file_monitor_list_directory directory scanning has been finished", evt_tag_int("Sum of file(s) found in directory", files_count), NULL);
   g_dir_close(dir);
   if (self->file_callback != NULL)
@@ -166,6 +158,23 @@ file_monitor_is_dir_monitored(FileMonitor *self, const gchar *filename)
   return FALSE;
 }
 
+static inline void
+file_monitor_compile_filename_pattern(FileMonitor *self, const gchar *filename_pattern)
+{
+  gchar *p = g_path_get_basename(filename_pattern);
+
+#ifndef G_OS_WIN32
+  gchar *pattern = g_strdup(p);
+#else
+  gchar *pattern = g_utf8_strdown(p, -1);
+#endif
+
+  self->compiled_pattern = g_pattern_spec_new(pattern);
+
+  g_free(pattern);
+  g_free(p);
+}
+
 gchar *
 file_monitor_resolve_base_directory_from_pattern(FileMonitor *self, const gchar *filename_pattern)
 {
@@ -191,11 +200,7 @@ file_monitor_resolve_base_directory_from_pattern(FileMonitor *self, const gchar 
       g_free(dir_part);
 
       if (!self->compiled_pattern)
-        {
-          gchar *pattern = g_path_get_basename(filename_pattern);
-          self->compiled_pattern = g_pattern_spec_new(pattern);
-          g_free(pattern);
-        }
+        file_monitor_compile_filename_pattern(self, filename_pattern);
     }
   else
     {
