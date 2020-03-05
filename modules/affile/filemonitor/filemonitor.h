@@ -46,7 +46,6 @@ struct _FileMonitor
   GSList *sources;
   GPatternSpec *compiled_pattern;
   FileMonitorCallbackFunc file_callback;
-  GSourceFunc destroy_callback;
   gpointer user_data;
   gboolean privileged;
   FileMonitorOptions *options;
@@ -62,8 +61,13 @@ typedef struct _MonitorBase
 {
   gchar *base_dir;
   FileMonitor *file_monitor;
-  gboolean (* callback)(FileMonitor *,struct _MonitorBase *);
 } MonitorBase;
+
+typedef struct _FMListDirectoryCallbacks
+{
+  gboolean (*file)(FileMonitor *m, const gchar *base_dir, const gchar *filename);
+  gboolean (*recurse_directory)(FileMonitor *m, const gchar *dir);
+} FMListDirectoryCallbacks;
 
 static inline gboolean
 file_monitor_watch_directory(FileMonitor *self, const gchar *filename)
@@ -111,9 +115,8 @@ file_monitor_free(FileMonitor *self)
 FileMonitor *file_monitor_create_instance(FileMonitorOptions *options);
 
 void file_monitor_set_file_callback(FileMonitor *self, FileMonitorCallbackFunc file_callback, gpointer user_data);
-void file_monitor_set_destroy_callback(FileMonitor *self, GSourceFunc destroy_callback, gpointer user_data);
-gboolean file_monitor_chk_file(FileMonitor * monitor, MonitorBase *source, const gchar *filename);
-gboolean file_monitor_list_directory(FileMonitor *self, MonitorBase *source, const gchar *basedir);
+gboolean file_monitor_chk_file(FileMonitor *self, const gchar *base_dir, const gchar *filename);
+gboolean file_monitor_list_directory(FileMonitor *self, const gchar *basedir, const FMListDirectoryCallbacks *cbs);
 gboolean file_monitor_is_dir_monitored(FileMonitor *self, const gchar *filename);
 gchar *file_monitor_resolve_base_directory_from_pattern(FileMonitor *self, const gchar *filename_pattern);
 void file_monitor_free_method(FileMonitor *self);

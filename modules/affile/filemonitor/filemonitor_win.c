@@ -75,70 +75,35 @@ resolve_to_absolute_path(const gchar *path, const gchar *basedir)
  * This function checks if the given filename matches the filters.
  **/
 static gboolean
-_file_monitor_chk_file(FileMonitorWindows * monitor, const gchar *base_dir, const gchar *filename, FileActionType action_type)
+_file_monitor_chk_file(FileMonitor *monitor, const gchar *base_dir, const gchar *filename, FileActionType action_type)
 {
   gboolean ret = FALSE;
   gchar *path = g_build_filename(base_dir, filename, NULL);
   gchar *base_name = g_path_get_basename(filename);
   gchar *base_name_lower = g_utf8_strdown(base_name, -1);
-  gboolean match = g_pattern_match_string(monitor->super.compiled_pattern, base_name_lower);
+  gboolean match = g_pattern_match_string(monitor->compiled_pattern, base_name_lower);
   g_free(base_name);
   g_free(base_name_lower);
 
 
   if (match &&
-      monitor->super.file_callback != NULL)
+      monitor->file_callback != NULL)
     {
       /* FIXME: resolve symlink */
       /* callback to affile */
       msg_debug("_file_monitor_chk_file filter passed", evt_tag_str("file",path),NULL);
-      monitor->super.file_callback(path, monitor->super.user_data, action_type);
+      monitor->file_callback(path, monitor->user_data, action_type);
       ret = TRUE;
     }
   g_free(path);
   return ret;
 }
 
-static gboolean
-_file_monitor_list_directory(FileMonitorWindows *self, const gchar *basedir)
+gboolean
+file_monitor_chk_file_windows(FileMonitor *self, const gchar *base_dir, const gchar *filename)
 {
-  GDir *dir = NULL;
-  GError *error = NULL;
-  const gchar *file_name = NULL;
-  guint files_count = 0;
-
-  /* try to open diretory */
-  dir = g_dir_open(basedir, 0, &error);
-  if (dir == NULL)
-    {
-      g_clear_error(&error);
-      return FALSE;
-    }
-
-  while ((file_name = g_dir_read_name(dir)) != NULL)
-    {
-      gchar * path = resolve_to_absolute_path(file_name, basedir);
-      if (g_file_test(path, G_FILE_TEST_IS_DIR))
-        {
-          /* Recursion is enabled */
-          if (self->super.options->recursion)
-            _file_monitor_list_directory(self, path); /* construct a new source to monitor the directory */
-        }
-      else
-        {
-          /* if file or symlink, match with the filter pattern */
-          _file_monitor_chk_file(self, basedir, file_name, ACTION_NONE);
-        }
-      files_count++;
-      g_free(path);
-    }
-  msg_trace("_file_monitor_list_directory directory scanning has been finished", evt_tag_int("Sum of file(s) found in directory", files_count), NULL);
-  g_dir_close(dir);
-  if (self->super.file_callback != NULL)
-    self->super.file_callback(END_OF_LIST, self->super.user_data,ACTION_NONE);
-  return TRUE;
+  return _file_monitor_chk_file(self, base_dir, filename, ACTION_NONE);
 }
-
 
 static VOID CALLBACK
 completition_routine(FileMonitorWindows *self, DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
@@ -160,7 +125,7 @@ completition_routine(FileMonitorWindows *self, DWORD dwErrorCode, DWORD dwNumber
         action_type = ACTION_DELETED;
       else if (pNotify->Action == FILE_ACTION_MODIFIED)
         action_type = ACTION_MODIFIED;
-      _file_monitor_chk_file(self, self->base_dir, szFile, action_type);
+      _file_monitor_chk_file(&self->super, self->base_dir, szFile, action_type);
     }
   while(pNotify->NextEntryOffset != 0);
   if (ReadDirectoryChangesW(self->hDir, self->buffer, FILE_MONITOR_BUFFER_SIZE, self->super.options->recursion, self->notify_flags, NULL, &self->ol, NULL) == 0)
@@ -195,11 +160,22 @@ file_monitor_windows_free(FileMonitor *s)
   file_monitor_free_method(s);
 }
 
+static inline gboolean
+_check_monitored_directory(FileMonitor *monitor, const gchar *dir)
+{
+  FMListDirectoryCallbacks cbs = {
+    .file = file_monitor_chk_file_windows,
+    .recurse_directory = _check_monitored_directory
+  };
+
+  return file_monitor_list_directory(monitor, dir, &cbs);
+}
+
 static gboolean
 file_monitor_windows_start_monitoring(FileMonitorWindows* self)
 {
+  _check_monitored_directory(&self->super, self->base_dir);
 
-  _file_monitor_list_directory(self,self->base_dir);
   self->hDir = CreateFile(self->base_dir, FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL);
   if (self->hDir == INVALID_HANDLE_VALUE)
     {
