@@ -33,15 +33,6 @@ ifneq (,$(findstring aix,$(ZBS_DIST)))
   LDFLAGS+=-Wl,-bmaxdata:2147483648
 endif
 
-ifneq (,$(findstring hpux,$(ZBS_DIST)))
-  RPATH=-Wl,+s,+b/opt/syslog-ng/lib
-  NEED_INSTALL_BEFORE_CHECK=1
-endif
-
-ifneq (,$(findstring tru64,$(ZBS_DIST)))
-  RPATH=-Wl,-rpath,/opt/syslog-ng/lib
-endif
-
 ifneq (,$(findstring linux-glibc2.11,$(ZBS_DIST)))
   CONFIGURE_OPTS+= --enable-java
   ifneq (,$(findstring amd64,$(ZBS_ARCH)))
@@ -51,22 +42,6 @@ ifneq (,$(findstring linux-glibc2.11,$(ZBS_DIST)))
     endif
   endif
 endif
-
-# FreeBSD 9.0 have sys/capabilities.h support, but bifferent than linux caps
-ifneq (,$(findstring freebsd,$(ZBS_DIST)))
-  CONFIGURE_OPTS+= --disable-linux-caps
-endif
-
-ifneq (,$(findstring linux-glibc2.1.3,$(ZBS_DIST)))
-  CONFIGURE_OPTS+=--disable-ipv6 --disable-threaded
-  # syslog-ng needs a C99 standtard compliant C compiler. GCC 2.95 is not compliant so we have to use a home built GCC 3.3 for this.
-	CC=gcc-4.2
-endif
-
-ifneq (,$(findstring linux-glibc2.3.2,$(ZBS_DIST)))
-	CC=gcc-4.2
-endif
-
 
 all: binary
 
@@ -80,18 +55,13 @@ $(STAMPDIR)/stamp-setup:
 configure: $(STAMPDIR)/stamp-configure
 $(STAMPDIR)/stamp-configure: $(STAMPDIR)/stamp-setup
 	CC=$(CC) CFLAGS="$(OPTIMALIZATION) -g $(CFLAGS)" LDFLAGS="$(RPATH) $(LDFLAGS)" $(SHELL) ./configure $(CONFIGURE_OPTS)
-	# 64 bit mode is a bit perky on solaris, we has to use the 64 bit LD_LIBRARY_PATH...
-	if [ "$(ZBS_ARCH)" = "sparc64" ] && echo $(ZBS_DIST) | grep solaris >/dev/null; then \
-		sed -e 's/\<\(LD_LIBRARY_PATH\)\>/\1_64/' libtool > libtool.$$ && \
-		mv libtool.$$ libtool; \
-	fi
 	touch $@
 
 
 build: $(STAMPDIR)/stamp-build
 $(STAMPDIR)/stamp-build: $(STAMPDIR)/stamp-configure
 	$(MAKE)
-	# dynamic linker on HPUX B.11.11 doesn't support uninstalled libs, because
+	# dynamic linker on AIX doesn't support uninstalled libs, because
 	# rpath overrides LD_LIBRARY_PATH. To allow the tests, we have to install
 	# the various libs to /opt/syslog-ng/lib.
 ifeq ($(NEED_INSTALL_BEFORE_CHECK), 1)
