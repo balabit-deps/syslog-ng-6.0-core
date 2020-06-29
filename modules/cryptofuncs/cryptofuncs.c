@@ -110,11 +110,34 @@ tf_hash_prepare(LogTemplateFunction *self, LogTemplate *parent, gint argc, gchar
       return FALSE;
     }
   state->md = md;
-  if ((state->length == 0) || (state->length > md->md_size * 2))
-    state->length = md->md_size * 2;
+  gint md_size = EVP_MD_size(md);
+  if ((state->length == 0) || (state->length > md_size * 2))
+    state->length = md_size * 2;
   *s = (gpointer) state;
   *state_destroy = tf_simple_func_free_state;
   return TRUE;
+}
+
+static guint
+_hash(const EVP_MD *md, GString **argv, gint argc, guchar *hash, guint hash_size)
+{
+  gint i;
+  guint md_len;
+  EVP_MD_CTX * mdctx = EVP_MD_CTX_create();
+
+  EVP_MD_CTX_init(mdctx);
+  EVP_DigestInit_ex(mdctx, md, NULL);
+
+  for (i = 0; i < argc; i++)
+    {
+      EVP_DigestUpdate(mdctx, argv[i]->str, argv[i]->len);
+    }
+
+  EVP_DigestFinal_ex(mdctx, hash, &md_len);
+  EVP_MD_CTX_reset(mdctx);
+  EVP_MD_CTX_destroy(mdctx);
+
+  return md_len;
 }
 
 static void
@@ -125,8 +148,6 @@ tf_hash_call(LogTemplateFunction *self, gpointer s, GPtrArray *arg_bufs,
   TFHashState *state = (TFHashState *) s;
   GString **argv;
   gint argc;
-  gint i;
-  EVP_MD_CTX mdctx;
   guchar hash[EVP_MAX_MD_SIZE];
   gchar hash_str[EVP_MAX_MD_SIZE * 2 + 1];
   guint md_len;
@@ -134,16 +155,7 @@ tf_hash_call(LogTemplateFunction *self, gpointer s, GPtrArray *arg_bufs,
   argv = (GString **) arg_bufs->pdata;
   argc = arg_bufs->len;
 
-  EVP_MD_CTX_init(&mdctx);
-  EVP_DigestInit_ex(&mdctx, state->md, NULL);
-
-  for (i = 0; i < argc; i++)
-    {
-      EVP_DigestUpdate(&mdctx, argv[i]->str, argv[i]->len);
-    }
-  EVP_DigestFinal_ex(&mdctx, hash, &md_len);
-  EVP_MD_CTX_cleanup(&mdctx);
-
+  md_len = _hash(state->md, argv, argc, hash, sizeof(hash));
   // we fetch the entire hash in a hex format otherwise we cannot truncate at
   // odd character numbers
   format_hex_string(hash, md_len, hash_str, sizeof(hash_str));
