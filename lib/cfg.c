@@ -826,7 +826,7 @@ cfg_generate_persist_file(GlobalConfig *cfg)
 static gchar *
 cfg_calculate_hash(GlobalConfig *cfg)
 {
-  EVP_MD_CTX sha;
+  EVP_MD_CTX *sha = EVP_MD_CTX_new();
   guint hashlen;
 
   if (cfg->cfg_fingerprint)
@@ -841,11 +841,10 @@ cfg_calculate_hash(GlobalConfig *cfg)
   cfg->cfg_fingerprint = g_malloc0(SHA_DIGEST_LENGTH * 2 + 1);
   cfg->cfg_hash = g_malloc0(EVP_MAX_MD_SIZE);
 
-  EVP_MD_CTX_init(&sha);
-  EVP_DigestInit_ex(&sha, EVP_sha1(), NULL);
-  EVP_DigestUpdate(&sha, cfg->cfg_processed_config, strlen(cfg->cfg_processed_config));
-  EVP_DigestFinal_ex(&sha, cfg->cfg_hash, &hashlen);
-  EVP_MD_CTX_cleanup(&sha);
+  EVP_DigestInit_ex(sha, EVP_sha1(), NULL);
+  EVP_DigestUpdate(sha, cfg->cfg_processed_config, strlen(cfg->cfg_processed_config));
+  EVP_DigestFinal_ex(sha, cfg->cfg_hash, &hashlen);
+  EVP_MD_CTX_free(sha);
 
   g_assert(hashlen == SHA_DIGEST_LENGTH);
 
