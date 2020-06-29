@@ -1073,9 +1073,12 @@ afsocket_dd_tls_verify_callback(gint ok, X509_STORE_CTX *ctx, gpointer user_data
 {
   AFSocketDestDriver *self = (AFSocketDestDriver *) user_data;
 
-  if (ok && ctx->current_cert == ctx->cert && self->hostname && (self->tls_context->verify_mode & TVM_TRUSTED))
+  X509 *current_cert = X509_STORE_CTX_get_current_cert(ctx);
+  X509 *cert = X509_STORE_CTX_get0_cert(ctx);
+
+  if (ok && current_cert == cert && self->hostname && (self->tls_context->verify_mode & TVM_TRUSTED))
     {
-      ok = tls_verify_certificate_name(ctx->cert, self->hostname);
+      ok = tls_verify_certificate_name(cert, self->hostname);
     }
 
   return ok;
