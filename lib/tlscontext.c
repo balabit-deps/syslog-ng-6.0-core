@@ -520,18 +520,15 @@ tls_context_setup_context(TLSContext *self, GlobalConfig *cfg)
         goto error;
     }
 
-  if (self->mode == TM_SERVER)
+  if (!tls_context_setup_ecdh(self))
     {
-      if (!tls_context_setup_ecdh(self))
-        {
-          SSL_CTX_free(self->ssl_ctx);
-          self->ssl_ctx = NULL;
-          return FALSE;
-        }
-
-      if (!tls_context_setup_dh(self))
-        goto error;
+      SSL_CTX_free(self->ssl_ctx);
+      self->ssl_ctx = NULL;
+      return FALSE;
     }
+
+  if (!tls_context_setup_dh(self))
+    goto error;
 
   return TRUE;
 
