@@ -26,7 +26,7 @@
 #include "syslog-ng.h"
 #include "children.h"
 
-#ifndef _WIN32
+#ifdef __linux__
 #include <dlfcn.h>
 #endif
 
@@ -41,7 +41,7 @@ trigger_sigchld_handler_chain(int signum)
     }
 }
 
-#ifndef _WIN32
+#ifdef __linux__
 static int
 call_original_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 {
