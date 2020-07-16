@@ -108,6 +108,7 @@ gboolean syntax_only = FALSE;
 gboolean generate_persist_file = FALSE;
 guint32 g_run_id;
 guint32 g_hostid;
+gint return_code_for_config_error_at_startup;
 
 /* USED ONLY IN PREMIUM EDITION */
 gboolean server_mode = TRUE;
@@ -623,6 +624,12 @@ setup_signals(void)
   _register_signal_handler(&sigint_poll, SIGINT, sig_term_handler);
 }
 
+static int
+config_error_return_code()
+{
+  return return_code_for_config_error_at_startup ? return_code_for_config_error_at_startup : 1;
+}
+
 /*
  * Returns: exit code to be returned to the calling process.
  */
@@ -651,14 +658,14 @@ main_loop_init(gchar *config_string)
     {
       if (!cfg_read_config(current_configuration, cfgfilename, syntax_only, preprocess_into))
         {
-          return 1;
+          return config_error_return_code();
         }
     }
   else if (config_string)
     {
       if (!cfg_load_config(current_configuration, config_string, syntax_only, preprocess_into))
         {
-          return 1;
+          return config_error_return_code();
         }
     }
   else
@@ -741,4 +748,10 @@ main_loop_reload()
 {
   iv_event_post(&reload_signal);
   return;
+}
+
+void
+override_return_code_for_config_error_at_startup(gint return_code)
+{
+  return_code_for_config_error_at_startup = return_code;
 }
