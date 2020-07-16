@@ -24,7 +24,7 @@
 #include "tlswincrypt.h"
 #include <openssl/engine.h>
 
-#define CAPI_ENGINE_PATH "lib\\engines\\capieay32"
+#define CAPI_ENGINE_PATH "lib\\engines-1_1\\capi"
 
 static X509*
 get_X509_cert_from_cert_context(PCCERT_CONTEXT cert)
