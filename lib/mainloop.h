@@ -71,5 +71,6 @@ gboolean main_loop_initialize_state(GlobalConfig *cfg, const gchar *persist_file
 void stats_timer_init(GlobalConfig *cfg);
 
 void main_loop_add_options(GOptionContext *ctx);
+void override_return_code_for_config_error_at_startup(gint return_code);
 
 #endif
