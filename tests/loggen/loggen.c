@@ -1159,6 +1159,7 @@ main(int argc, char *argv[])
       OpenSSL_add_ssl_algorithms();
       if (NULL == (ssl_ctx = SSL_CTX_new(SSLv23_client_method())))
         return 1;
+      SSL_CTX_set_mode(ssl_ctx, SSL_MODE_AUTO_RETRY);
     }
     SSL_load_error_strings();
     ERR_load_crypto_strings();
