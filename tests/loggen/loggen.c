@@ -821,6 +821,7 @@ idle_thread(gpointer st)
   while (!threads_stop)
     g_cond_wait(thread_cond, thread_lock);
   g_mutex_unlock(thread_lock);
+  shutdown(sock, SHUT_RDWR);
   close(sock);
   return NULL;
 error:
@@ -1032,6 +1033,7 @@ use_plain_transport:
   if (active_finished == active_connections)
     g_cond_signal(thread_finished);
   g_mutex_unlock(thread_lock);
+  shutdown(sock, SHUT_RDWR);
   close(sock);
   if (readfrom && readfrom != stdin)
     fclose(readfrom);
