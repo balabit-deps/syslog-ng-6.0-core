@@ -453,6 +453,20 @@ tls_context_setup_dh(TLSContext *self)
   return ctx_dh_success;
 }
 
+static void
+tls_context_setup_session_tickets(TLSContext *self)
+{
+  /* This is a workaround for an OpenSSL TLS 1.3 bug that results in data loss
+   * when one-way protocols are used and a connection is closed by the client
+   * right after sending data.
+   *
+   * Remove this call after the bug has been fixed:
+   * - https://github.com/openssl/openssl/issues/10880
+   * - https://github.com/openssl/openssl/issues/7948
+   */
+  SSL_CTX_set_num_tickets(self->ssl_ctx, 0);
+}
+
 static gboolean
 tls_context_setup_context(TLSContext *self, GlobalConfig *cfg)
 {
@@ -499,6 +513,9 @@ tls_context_setup_context(TLSContext *self, GlobalConfig *cfg)
     verify_flags |= X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL;
 
   X509_VERIFY_PARAM_set_flags(SSL_CTX_get0_param(self->ssl_ctx), verify_flags);
+
+  if (self->mode == TM_SERVER)
+    tls_context_setup_session_tickets(self);
 
   tls_context_setup_verify_mode(self);
 
