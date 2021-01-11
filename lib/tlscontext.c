@@ -495,6 +495,9 @@ tls_context_setup_context(TLSContext *self, GlobalConfig *cfg)
   if (file_exists(self->ca_dir) && !SSL_CTX_load_verify_locations(self->ssl_ctx, NULL, self->ca_dir))
     goto error;
 
+  if (file_exists(self->ca_file) && !SSL_CTX_load_verify_locations(self->ssl_ctx, self->ca_file, NULL))
+    goto error;
+
   if (file_exists(self->crl_dir) && !SSL_CTX_load_verify_locations(self->ssl_ctx, NULL, self->crl_dir))
     goto error;
 
@@ -615,6 +618,7 @@ tls_context_free(TLSContext *self)
   g_free(self->dhparam_file);
   g_free(self->ca_dir);
   g_free(self->crl_dir);
+  g_free(self->ca_file);
   g_free(self->cipher_suite);
   g_free(self->curve_list);
   g_free(self);
@@ -691,6 +695,13 @@ tls_lookup_ca_dir_layout(const gchar *layout_str)
     }
 
   return CA_DIR_LAYOUT_DEFAULT;
+}
+
+void
+tls_context_set_ca_file(TLSContext *self, const gchar *ca_file)
+{
+  g_free(self->ca_file);
+  self->ca_file = g_strdup(ca_file);
 }
 
 void
