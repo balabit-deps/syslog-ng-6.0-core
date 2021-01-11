@@ -304,17 +304,6 @@ file_exists(const gchar *fname)
   return TRUE;
 }
 
-static gboolean
-tls_context_verify_locations(TLSContext *self, gchar *dir)
-{
-  if (file_exists(dir))
-    {
-      if (!SSL_CTX_load_verify_locations(self->ssl_ctx, NULL, dir))
-        return FALSE;
-    }
-  return TRUE;
-}
-
 static gint
 _get_number_of_available_compression_methods(void)
 {
@@ -503,10 +492,10 @@ tls_context_setup_context(TLSContext *self, GlobalConfig *cfg)
   if (self->key_file && self->cert_file && !SSL_CTX_check_private_key(self->ssl_ctx))
     goto error;
 
-  if (!tls_context_verify_locations(self, self->ca_dir))
+  if (file_exists(self->ca_dir) && !SSL_CTX_load_verify_locations(self->ssl_ctx, NULL, self->ca_dir))
     goto error;
 
-  if (!tls_context_verify_locations(self, self->crl_dir))
+  if (file_exists(self->crl_dir) && !SSL_CTX_load_verify_locations(self->ssl_ctx, NULL, self->crl_dir))
     goto error;
 
   if (self->crl_dir)
