@@ -304,17 +304,6 @@ file_exists(const gchar *fname)
   return TRUE;
 }
 
-static gboolean
-tls_context_verify_locations(TLSContext *self, gchar *dir)
-{
-  if (file_exists(dir))
-    {
-      if (!SSL_CTX_load_verify_locations(self->ssl_ctx, NULL, dir))
-        return FALSE;
-    }
-  return TRUE;
-}
-
 static gint
 _get_number_of_available_compression_methods(void)
 {
@@ -503,10 +492,13 @@ tls_context_setup_context(TLSContext *self, GlobalConfig *cfg)
   if (self->key_file && self->cert_file && !SSL_CTX_check_private_key(self->ssl_ctx))
     goto error;
 
-  if (!tls_context_verify_locations(self, self->ca_dir))
+  if (file_exists(self->ca_dir) && !SSL_CTX_load_verify_locations(self->ssl_ctx, NULL, self->ca_dir))
     goto error;
 
-  if (!tls_context_verify_locations(self, self->crl_dir))
+  if (file_exists(self->ca_file) && !SSL_CTX_load_verify_locations(self->ssl_ctx, self->ca_file, NULL))
+    goto error;
+
+  if (file_exists(self->crl_dir) && !SSL_CTX_load_verify_locations(self->ssl_ctx, NULL, self->crl_dir))
     goto error;
 
   if (self->crl_dir)
@@ -626,6 +618,7 @@ tls_context_free(TLSContext *self)
   g_free(self->dhparam_file);
   g_free(self->ca_dir);
   g_free(self->crl_dir);
+  g_free(self->ca_file);
   g_free(self->cipher_suite);
   g_free(self->curve_list);
   g_free(self);
@@ -702,6 +695,13 @@ tls_lookup_ca_dir_layout(const gchar *layout_str)
     }
 
   return CA_DIR_LAYOUT_DEFAULT;
+}
+
+void
+tls_context_set_ca_file(TLSContext *self, const gchar *ca_file)
+{
+  g_free(self->ca_file);
+  self->ca_file = g_strdup(ca_file);
 }
 
 void

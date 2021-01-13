@@ -51,6 +51,7 @@ static CfgLexerKeyword afsocket_keywords[] = {
   { "ca_dir",             KW_CA_DIR },
   { "ca_dir_layout",      KW_CA_DIR_LAYOUT, 0, KWS_OBSOLETE, "ca-dir-layout has been ignored since " VERSION_PE_6_0". Please rehash the CA directory if you encounter problems with the hashing."},
   { "crl_dir",            KW_CRL_DIR },
+  { "ca_file",            KW_CA_FILE },
   { "trusted_keys",       KW_TRUSTED_KEYS },
   { "trusted_dn",         KW_TRUSTED_DN },
   { "cipher_suite",       KW_CIPHER_SUITE },
