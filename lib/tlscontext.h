@@ -76,6 +76,7 @@ struct _TLSContext
   gchar *cert_file;
   gchar *dhparam_file;
   gchar *ca_dir;
+  gchar *ca_file;
   gchar *crl_dir;
   gchar *cipher_suite;
   gchar *curve_list;
@@ -100,6 +101,7 @@ TLSContext *tls_context_ref(TLSContext *s);
 
 TLSVerifyMode tls_lookup_verify_mode(const gchar *mode_str);
 CADirLayout tls_lookup_ca_dir_layout(const gchar *layout_str);
+void tls_context_set_ca_file(TLSContext *self, const gchar *ca_file);
 
 void tls_log_certificate_validation_progress(int ok, X509_STORE_CTX *ctx);
 gboolean tls_verify_certificate_name(X509 *cert, const gchar *hostname);
