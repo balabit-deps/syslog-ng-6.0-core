@@ -32,8 +32,8 @@
 #include "state.h"
 #include "cfg.h"
 
-gchar *old_key;
-gchar *new_key;
+extern gchar *old_key;
+extern gchar *new_key;
 
 gint rename_main(int argc, char *argv[]);
 

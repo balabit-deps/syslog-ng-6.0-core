@@ -31,8 +31,8 @@
 #include "property_container.h"
 #include "hds.h"
 
-GHashTable *counter_static_hash;
-GHashTable *counter_dynamic_hash;
+extern GHashTable *counter_static_hash;
+extern GHashTable *counter_dynamic_hash;
 
 typedef enum
 {
