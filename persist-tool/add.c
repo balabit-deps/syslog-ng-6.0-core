@@ -33,6 +33,8 @@ typedef struct __PersistStateEntry
 
 FILE *input_file;
 
+gchar *persist_state_dir;
+
 gboolean
 check_directory_exists(gchar *path)
 {

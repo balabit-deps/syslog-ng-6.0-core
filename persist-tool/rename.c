@@ -23,6 +23,9 @@
 
 #include "rename.h"
 
+gchar *old_key;
+gchar *new_key;
+
 static gboolean
 __check_parameters(gchar *persist_filename, int argc)
 {
