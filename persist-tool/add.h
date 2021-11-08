@@ -32,7 +32,7 @@
 #include "cfg.h"
 #include "persist-tool.h"
 
-gchar *persist_state_dir;
+extern gchar *persist_state_dir;
 
 gint add_main(int argc, char *argv[]);
 
