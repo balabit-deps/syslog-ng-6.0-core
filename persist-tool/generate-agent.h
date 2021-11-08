@@ -32,9 +32,9 @@
 #include "state.h"
 #include "cfg.h"
 
-gboolean force_generate_agent;
-gchar *generate_agent_output_dir;
-gchar *xml_config_file;
+extern gboolean force_generate_agent;
+extern gchar *generate_agent_output_dir;
+extern gchar *xml_config_file;
 
 gint generate_agent_main(int argc, char *argv[]);
 

@@ -29,6 +29,10 @@
 static const gchar *agent_registry_config = "@version: 5.1\n@module eventlog\n@module agent-config type(REGISTRY) name(ac)\noptions{ threaded(yes); };\nac()\n";
 static const gchar *agent_xml_config_format = "@version: 5.1\n@module eventlog\n@module agent-config type(XML) file(\"%s\") name(ac)\noptions { threaded(yes); }; \nac()\n";
 
+gboolean force_generate_agent;
+gchar *generate_agent_output_dir;
+gchar *xml_config_file;
+
 gint
 generate_agent_main(gint argc, gchar **argv)
 {

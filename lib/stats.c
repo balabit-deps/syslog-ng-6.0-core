@@ -83,6 +83,8 @@
 static StatsCounterItem *severity_counters[SEVERITY_MAX];
 static StatsCounterItem *facility_counters[FACILITY_MAX];
 
+GHashTable *counter_static_hash;
+GHashTable *counter_dynamic_hash;
 
 gint current_stats_level = 0;
 gint current_stats_max_dynamic = -1;
