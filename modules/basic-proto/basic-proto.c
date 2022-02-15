@@ -1601,6 +1601,7 @@ log_proto_buffered_server_fetch_from_buf(LogProtoBufferedServer *self, const guc
     }
 
   success = self->fetch_from_buf(self, buffer_start, buffer_bytes, msg, msg_len, flush_the_rest);
+  /* do not use buffer_start, it might be invalid at this point (memmove in fetch_from_buf()) */
  exit:
   log_proto_buffered_server_put_state(self);
   return success;
@@ -2337,6 +2338,7 @@ log_proto_text_server_fetch_from_buf(LogProtoBufferedServer *s, const guchar *bu
       memmove(self->super.buffer, buffer_start, buffer_bytes);
       state->pending_buffer_pos = 0;
       state->pending_buffer_end = buffer_bytes;
+      buffer_start = self->super.buffer;
 
       if (G_UNLIKELY(self->super.super.flags & LPBS_POS_TRACKING))
         {
